@@ -1,0 +1,156 @@
+# ==============================================================================
+# BeatConnect Plugin Build Workflow
+# ==============================================================================
+# This workflow builds your plugin for Windows and macOS.
+# For full BeatConnect integration (signing, distribution), see docs/integration.md
+# ==============================================================================
+
+name: Build Plugin
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., 1.0.0)'
+        required: true
+        default: '1.0.0'
+
+env:
+  CMAKE_VERSION: "3.28.1"
+  JUCE_VERSION: "8.0.4"
+  PLUGIN_NAME: "{{PLUGIN_NAME}}"
+
+jobs:
+  # ==============================================================================
+  # Build Web UI
+  # ==============================================================================
+  build-web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install web dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Build web UI
+        working-directory: web
+        run: npm run build
+
+      - name: Upload web artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: web/dist/
+          retention-days: 1
+
+  # ==============================================================================
+  # Build Plugin (Windows & macOS)
+  # ==============================================================================
+  build:
+    needs: build-web
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows
+            cmake_generator: "Visual Studio 17 2022"
+          - os: macos-latest
+            platform: macos
+            cmake_generator: "Xcode"
+
+    name: Build (${{ matrix.platform }})
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Download web artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: web/dist/
+
+      # Setup CMake
+      - name: Setup CMake
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: ${{ env.CMAKE_VERSION }}
+
+      # Configure
+      - name: Configure CMake
+        run: |
+          cmake -B build \
+            -G "${{ matrix.cmake_generator }}" \
+            -DCMAKE_BUILD_TYPE=Release
+
+      # Build
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      # Package artifacts
+      - name: Package VST3 (Windows)
+        if: matrix.platform == 'windows'
+        run: |
+          mkdir -p artifacts
+          cp -r "build/${{ env.PLUGIN_NAME }}_artefacts/Release/VST3/"*.vst3 artifacts/ || true
+        shell: bash
+
+      - name: Package VST3 and AU (macOS)
+        if: matrix.platform == 'macos'
+        run: |
+          mkdir -p artifacts
+          cp -r "build/${{ env.PLUGIN_NAME }}_artefacts/Release/VST3/"*.vst3 artifacts/ || true
+          cp -r "build/${{ env.PLUGIN_NAME }}_artefacts/Release/AU/"*.component artifacts/ || true
+
+      # Upload artifacts
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PLUGIN_NAME }}-${{ matrix.platform }}
+          path: artifacts/
+          retention-days: 7
+
+  # ==============================================================================
+  # Trigger BeatConnect Build (Optional)
+  # ==============================================================================
+  # Uncomment this job to integrate with BeatConnect's build pipeline
+  # You'll need to set these secrets:
+  #   - BEATCONNECT_PROJECT_ID
+  #   - BEATCONNECT_WEBHOOK_SECRET
+  #   - BEATCONNECT_API_URL
+  # ==============================================================================
+
+  # beatconnect-build:
+  #   if: startsWith(github.ref, 'refs/tags/v')
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Get version from tag
+  #       id: version
+  #       run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+  #
+  #     - name: Trigger BeatConnect build
+  #       run: |
+  #         curl -X POST \
+  #           "${{ secrets.BEATCONNECT_API_URL }}/functions/v1/external-builds/${{ secrets.BEATCONNECT_PROJECT_ID }}/trigger" \
+  #           -H "x-webhook-secret: ${{ secrets.BEATCONNECT_WEBHOOK_SECRET }}" \
+  #           -H "Content-Type: application/json" \
+  #           -d '{
+  #             "plugin_version": "${{ steps.version.outputs.version }}",
+  #             "commit_sha": "${{ github.sha }}",
+  #             "build_platforms": ["windows", "macos"],
+  #             "build_formats": ["vst3", "au"]
+  #           }'
