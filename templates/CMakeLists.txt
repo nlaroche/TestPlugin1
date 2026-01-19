@@ -25,16 +25,21 @@ option({{PLUGIN_NAME_UPPER}}_DEV_MODE "Enable development mode with Vite hot rel
 # ==============================================================================
 # JUCE
 # ==============================================================================
-include(FetchContent)
-
-FetchContent_Declare(
-    JUCE
-    GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
-    GIT_TAG 8.0.4
-    GIT_SHALLOW TRUE
-)
-
-FetchContent_MakeAvailable(JUCE)
+# Use JUCE_PATH if provided (CI builds), otherwise fetch from GitHub
+if(DEFINED JUCE_PATH AND EXISTS "${JUCE_PATH}/CMakeLists.txt")
+    message(STATUS "Using JUCE from: ${JUCE_PATH}")
+    add_subdirectory("${JUCE_PATH}" "${CMAKE_BINARY_DIR}/JUCE" EXCLUDE_FROM_ALL)
+else()
+    message(STATUS "Fetching JUCE from GitHub...")
+    include(FetchContent)
+    FetchContent_Declare(
+        JUCE
+        GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
+        GIT_TAG 8.0.4
+        GIT_SHALLOW TRUE
+    )
+    FetchContent_MakeAvailable(JUCE)
+endif()
 
 # ==============================================================================
 # Plugin Target
@@ -153,8 +158,34 @@ if(EXISTS "${CMAKE_SOURCE_DIR}/web/dist" AND NOT ${{{PLUGIN_NAME_UPPER}}_DEV_MOD
 endif()
 
 # ==============================================================================
-# BeatConnect SDK (optional - for activation)
+# BeatConnect SDK Integration
 # ==============================================================================
-# Uncomment when SDK is ready:
-# add_subdirectory(beatconnect-sdk/sdk/activation)
-# target_link_libraries(${PROJECT_NAME} PRIVATE beatconnect_activation)
+
+# Option to enable BeatConnect activation (set by CI or manually)
+option(BEATCONNECT_ENABLE_ACTIVATION "Enable BeatConnect activation key support" OFF)
+
+# Embed project_data.json if it exists (injected at build time by BeatConnect CI)
+if(EXISTS "${CMAKE_SOURCE_DIR}/resources/project_data.json")
+    message(STATUS "Found project_data.json - embedding as BinaryData")
+    juce_add_binary_data(${PROJECT_NAME}_BinaryData
+        HEADER_NAME "ProjectData.h"
+        NAMESPACE ProjectData
+        SOURCES
+            resources/project_data.json
+    )
+    target_link_libraries(${PROJECT_NAME} PRIVATE ${PROJECT_NAME}_BinaryData)
+    target_compile_definitions(${PROJECT_NAME} PUBLIC HAS_PROJECT_DATA=1)
+else()
+    message(STATUS "No project_data.json found - BeatConnect features disabled")
+    target_compile_definitions(${PROJECT_NAME} PUBLIC HAS_PROJECT_DATA=0)
+endif()
+
+# BeatConnect Activation SDK (requires beatconnect-sdk submodule)
+if(BEATCONNECT_ENABLE_ACTIVATION AND EXISTS "${CMAKE_SOURCE_DIR}/beatconnect-sdk/sdk/activation/CMakeLists.txt")
+    message(STATUS "BeatConnect Activation SDK enabled")
+    add_subdirectory(beatconnect-sdk/sdk/activation)
+    target_link_libraries(${PROJECT_NAME} PRIVATE beatconnect_activation)
+    target_compile_definitions(${PROJECT_NAME} PUBLIC BEATCONNECT_ACTIVATION_ENABLED=1)
+else()
+    target_compile_definitions(${PROJECT_NAME} PUBLIC BEATCONNECT_ACTIVATION_ENABLED=0)
+endif()
