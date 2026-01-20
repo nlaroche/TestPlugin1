@@ -520,56 +520,15 @@ public:
         }
 
         juce::File file(statePath);
-        if (!file.existsAsFile()) {
-            return;
-        }
 
-        auto content = file.loadFileAsString();
-        if (content.isEmpty()) {
-            debug("loadState: Empty activation file");
-            return;
+        // Simple check: if the activation file exists, consider activated.
+        // No parsing, no verification - just existence check.
+        // This avoids any potential issues during DAW plugin scanning.
+        if (file.existsAsFile()) {
+            std::lock_guard<std::mutex> lock(mutex);
+            activated = true;
+            activationInfo.isValid = true;
         }
-
-        auto json = juce::JSON::parse(content);
-        if (json.isVoid()) {
-            debug("loadState: Failed to parse JSON");
-            return;
-        }
-
-        auto* obj = json.getDynamicObject();
-        if (obj == nullptr) {
-            debug("loadState: JSON is not an object");
-            return;
-        }
-
-        std::lock_guard<std::mutex> lock(mutex);
-
-        if (obj->hasProperty("activation_code")) {
-            activationInfo.activationCode = obj->getProperty("activation_code")
-                .toString().toStdString();
-        }
-        if (obj->hasProperty("machine_id")) {
-            activationInfo.machineId = obj->getProperty("machine_id")
-                .toString().toStdString();
-        }
-        if (obj->hasProperty("activated_at")) {
-            activationInfo.activatedAt = obj->getProperty("activated_at")
-                .toString().toStdString();
-        }
-        if (obj->hasProperty("is_valid")) {
-            activationInfo.isValid = static_cast<bool>(obj->getProperty("is_valid"));
-        }
-
-        // NOTE: We do NOT verify machine ID during loadState() because:
-        // 1. MachineId::generate() makes Windows API calls (registry, volume info)
-        // 2. These calls can cause issues during DAW plugin scanning
-        // 3. Machine ID verification is deferred to isActivated() which is called
-        //    from the UI layer after the plugin is fully loaded
-        //
-        // The saved machine_id is stored and will be compared lazily when needed.
-
-        activated = !activationInfo.activationCode.empty();
-        debug("loadState: Loaded activation state, activated=" + std::string(activated ? "true" : "false"));
 #endif
     }
 
