@@ -143,7 +143,8 @@ public:
      * Makes network request to BeatConnect API.
      * Thread-safe - can be called from any thread.
      *
-     * @param code Activation code (e.g., "XXXX-XXXX-XXXX-XXXX")
+     * @param code Activation code - supports UUID format (e.g., "fd5cf09b-b8f4-495c-a4b9-8404dd965b4c")
+     *             or legacy format (e.g., "XXXX-XXXX-XXXX-XXXX")
      * @return Activation status
      */
     ActivationStatus activate(const std::string& code);
