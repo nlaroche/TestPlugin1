@@ -8,7 +8,7 @@
  *
  * Usage:
  *   beatconnect::Activation::Config config;
- *   config.apiBaseUrl = "https://xxx.supabase.co/functions/v1";
+ *   config.apiBaseUrl = "https://xxx.supabase.co";
  *   config.pluginId = "your-project-uuid";
  *
  *   auto& activation = beatconnect::Activation::getInstance();

@@ -130,7 +130,9 @@ public:
 
         // Build request
 #if BEATCONNECT_USE_JUCE
-        juce::String urlStr = juce::String(config.apiBaseUrl) + "/plugin-activation/activate";
+        // apiBaseUrl is just the Supabase URL (e.g., https://xxx.supabase.co)
+        // We need to add /functions/v1/ to reach edge functions
+        juce::String urlStr = juce::String(config.apiBaseUrl) + "/functions/v1/plugin-activation/activate";
         debug("activate: URL = " + urlStr.toStdString());
         juce::URL url(urlStr);
 
@@ -249,7 +251,7 @@ public:
         }
 
 #if BEATCONNECT_USE_JUCE
-        juce::URL url(juce::String(config.apiBaseUrl) + "/plugin-activation/deactivate");
+        juce::URL url(juce::String(config.apiBaseUrl) + "/functions/v1/plugin-activation/deactivate");
 
         juce::DynamicObject::Ptr body = new juce::DynamicObject();
         body->setProperty("code", juce::String(code));
@@ -321,7 +323,7 @@ public:
         }
 
 #if BEATCONNECT_USE_JUCE
-        juce::URL url(juce::String(config.apiBaseUrl) + "/plugin-activation/validate");
+        juce::URL url(juce::String(config.apiBaseUrl) + "/functions/v1/plugin-activation/validate");
 
         juce::DynamicObject::Ptr body = new juce::DynamicObject();
         body->setProperty("code", juce::String(code));
