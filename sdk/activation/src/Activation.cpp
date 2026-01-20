@@ -52,6 +52,22 @@ public:
     Impl() = default;
     ~Impl() = default;
 
+    void setDebugCallback(Activation::DebugCallback callback) {
+        std::lock_guard<std::mutex> lock(mutex);
+        debugCallback = callback;
+    }
+
+    void debug(const std::string& msg) {
+        Activation::DebugCallback cb;
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            cb = debugCallback;
+        }
+        if (cb) {
+            cb("[ActivationSDK] " + msg);
+        }
+    }
+
     void configure(const ActivationConfig& config) {
         std::lock_guard<std::mutex> lock(mutex);
         this->config = config;
@@ -105,14 +121,18 @@ public:
 
     ActivationStatus activate(const std::string& code) {
         if (!configured) {
+            debug("activate: Not configured");
             return ActivationStatus::NotConfigured;
         }
 
         auto machineId = MachineId::generate();
+        debug("activate: machineId = " + machineId);
 
         // Build request
 #if BEATCONNECT_USE_JUCE
-        juce::URL url(juce::String(config.apiBaseUrl) + "/plugin-activation/activate");
+        juce::String urlStr = juce::String(config.apiBaseUrl) + "/plugin-activation/activate";
+        debug("activate: URL = " + urlStr.toStdString());
+        juce::URL url(urlStr);
 
         juce::DynamicObject::Ptr body = new juce::DynamicObject();
         body->setProperty("code", juce::String(code));
@@ -120,6 +140,7 @@ public:
         body->setProperty("machine_id", juce::String(machineId));
 
         auto jsonBody = juce::JSON::toString(juce::var(body.get()));
+        debug("activate: Request body = " + jsonBody.toStdString());
 
         juce::URL::InputStreamOptions options(
             juce::URL::ParameterHandling::inPostData);
@@ -129,6 +150,9 @@ public:
         if (!config.supabaseKey.empty()) {
             headers += "apikey: " + juce::String(config.supabaseKey) + "\r\n";
             headers += "Authorization: Bearer " + juce::String(config.supabaseKey) + "\r\n";
+            debug("activate: Using supabaseKey (length=" + std::to_string(config.supabaseKey.length()) + ")");
+        } else {
+            debug("activate: WARNING - No supabaseKey configured!");
         }
         options.withExtraHeaders(headers);
         options.withConnectionTimeoutMs(config.requestTimeoutMs);
@@ -136,26 +160,34 @@ public:
 
         url = url.withPOSTData(jsonBody);
 
+        debug("activate: Creating input stream...");
         auto stream = url.createInputStream(options);
         if (!stream) {
+            debug("activate: FAILED - createInputStream returned null (NetworkError)");
             return ActivationStatus::NetworkError;
         }
 
+        debug("activate: Reading response...");
         auto response = stream->readEntireStreamAsString();
+        debug("activate: Response (length=" + std::to_string(response.length()) + "): " + response.toStdString());
+
         auto json = juce::JSON::parse(response);
 
         if (json.isVoid()) {
+            debug("activate: FAILED - JSON parse returned void (ServerError)");
             return ActivationStatus::ServerError;
         }
 
         auto* obj = json.getDynamicObject();
         if (!obj) {
+            debug("activate: FAILED - JSON is not an object (ServerError)");
             return ActivationStatus::ServerError;
         }
 
         // Check for error
         if (obj->hasProperty("error")) {
             auto error = obj->getProperty("error").toString().toStdString();
+            debug("activate: Server returned error: " + error);
             if (error.find("Invalid") != std::string::npos) {
                 return ActivationStatus::Invalid;
             }
@@ -466,6 +498,7 @@ private:
     bool configured = false;
     bool activated = false;
     ActivationInfo activationInfo;
+    Activation::DebugCallback debugCallback;
 };
 
 // ==============================================================================
@@ -530,6 +563,10 @@ void Activation::clearState() {
 
 std::string Activation::getMachineId() const {
     return pImpl->getMachineId();
+}
+
+void Activation::setDebugCallback(DebugCallback callback) {
+    pImpl->setDebugCallback(callback);
 }
 
 } // namespace beatconnect

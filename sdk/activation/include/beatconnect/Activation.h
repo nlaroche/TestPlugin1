@@ -216,6 +216,19 @@ public:
      */
     std::string getMachineId() const;
 
+    // =========================================================================
+    // Debug Logging
+    // =========================================================================
+
+    using DebugCallback = std::function<void(const std::string&)>;
+
+    /**
+     * Set a callback for debug logging.
+     * When set, the SDK will call this with debug messages during operations.
+     * Pass nullptr to disable debug logging.
+     */
+    void setDebugCallback(DebugCallback callback);
+
 private:
     Activation();
     ~Activation();
