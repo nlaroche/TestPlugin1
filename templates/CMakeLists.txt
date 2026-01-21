@@ -107,6 +107,8 @@ if(WIN32)
     target_compile_definitions(${PROJECT_NAME}
         PUBLIC
             JUCE_USE_WIN_WEBVIEW2=1
+            # Static linking embeds the WebView2 loader into the binary - no DLL needed at runtime
+            JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1
     )
 endif()
 
