@@ -60,7 +60,9 @@ private:
     //==============================================================================
     void setupWebView();
     void setupRelaysAndAttachments();
+    void setupActivationEvents();
     void sendVisualizerData();
+    void sendActivationState();
 
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR({{PLUGIN_NAME}}Editor)

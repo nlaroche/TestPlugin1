@@ -9,6 +9,17 @@
 #include "PluginEditor.h"
 #include "ParameterIDs.h"
 
+#if HAS_PROJECT_DATA
+#include "ProjectData.h"
+#endif
+
+#if BEATCONNECT_ACTIVATION_ENABLED
+#include <beatconnect/Activation.h>
+#endif
+
+// Increment this when making breaking changes to parameter structure
+static constexpr int kStateVersion = 1;
+
 //==============================================================================
 {{PLUGIN_NAME}}Processor::{{PLUGIN_NAME}}Processor()
     : AudioProcessor(BusesProperties()
@@ -16,6 +27,7 @@
                      .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
       apvts(*this, nullptr, "Parameters", createParameterLayout())
 {
+    loadProjectData();
 }
 
 {{PLUGIN_NAME}}Processor::~{{PLUGIN_NAME}}Processor()
@@ -205,6 +217,10 @@ void {{PLUGIN_NAME}}Processor::getStateInformation(juce::MemoryBlock& destData)
 {
     auto state = apvts.copyState();
     std::unique_ptr<juce::XmlElement> xml(state.createXml());
+
+    // Add state version for forwards compatibility
+    xml->setAttribute("stateVersion", kStateVersion);
+
     copyXmlToBinary(*xml, destData);
 }
 
@@ -213,7 +229,80 @@ void {{PLUGIN_NAME}}Processor::setStateInformation(const void* data, int sizeInB
     std::unique_ptr<juce::XmlElement> xmlState(getXmlFromBinary(data, sizeInBytes));
 
     if (xmlState != nullptr && xmlState->hasTagName(apvts.state.getType()))
+    {
+        // Check state version
+        int loadedVersion = xmlState->getIntAttribute("stateVersion", 0);
+
         apvts.replaceState(juce::ValueTree::fromXml(*xmlState));
+
+        // Reset to defaults if state version mismatch (breaking parameter changes)
+        if (loadedVersion != kStateVersion)
+        {
+            DBG("State version mismatch (loaded: " + juce::String(loadedVersion) +
+                ", current: " + juce::String(kStateVersion) + ") - using defaults");
+            // Add any parameter resets needed here
+        }
+    }
+}
+
+//==============================================================================
+// BeatConnect Integration
+//==============================================================================
+
+bool {{PLUGIN_NAME}}Processor::hasActivationEnabled() const
+{
+#if HAS_PROJECT_DATA && BEATCONNECT_ACTIVATION_ENABLED
+    return static_cast<bool>(buildFlags_.getProperty("enableActivationKeys", false));
+#else
+    return false;
+#endif
+}
+
+void {{PLUGIN_NAME}}Processor::loadProjectData()
+{
+#if HAS_PROJECT_DATA
+    // Load project_data.json from embedded BinaryData
+    int dataSize = 0;
+    const char* data = ProjectData::getNamedResource("project_data_json", dataSize);
+
+    if (data == nullptr || dataSize == 0)
+    {
+        DBG("No project_data.json found in BinaryData");
+        return;
+    }
+
+    auto jsonString = juce::String::fromUTF8(data, dataSize);
+    auto parsed = juce::JSON::parse(jsonString);
+
+    if (parsed.isVoid())
+    {
+        DBG("Failed to parse project_data.json");
+        return;
+    }
+
+    // Extract BeatConnect configuration
+    pluginId_ = parsed.getProperty("pluginId", "").toString();
+    apiBaseUrl_ = parsed.getProperty("apiBaseUrl", "").toString();
+    supabasePublishableKey_ = parsed.getProperty("supabasePublishableKey", "").toString();
+    buildFlags_ = parsed.getProperty("flags", juce::var());
+
+#if BEATCONNECT_ACTIVATION_ENABLED
+    // Configure activation SDK if enabled
+    bool enableActivation = static_cast<bool>(buildFlags_.getProperty("enableActivationKeys", false));
+
+    if (enableActivation && pluginId_.isNotEmpty())
+    {
+        beatconnect::ActivationConfig config;
+        config.apiBaseUrl = apiBaseUrl_.toStdString();
+        config.pluginId = pluginId_.toStdString();
+        config.supabaseKey = supabasePublishableKey_.toStdString();
+        beatconnect::Activation::getInstance().configure(config);
+        DBG("BeatConnect Activation SDK configured for plugin: " + pluginId_);
+    }
+#endif
+
+    DBG("Loaded BeatConnect project data - Plugin ID: " + pluginId_);
+#endif
 }
 
 //==============================================================================

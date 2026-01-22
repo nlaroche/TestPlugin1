@@ -54,11 +54,26 @@ public:
     // Parameter Access
     juce::AudioProcessorValueTreeState& getAPVTS() { return apvts; }
 
+    //==============================================================================
+    // BeatConnect Integration
+    bool hasActivationEnabled() const;
+    juce::String getPluginId() const { return pluginId_; }
+    juce::String getApiBaseUrl() const { return apiBaseUrl_; }
+    juce::String getSupabaseKey() const { return supabasePublishableKey_; }
+
 private:
     //==============================================================================
     // Parameters
     juce::AudioProcessorValueTreeState apvts;
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
+
+    //==============================================================================
+    // BeatConnect project data (loaded from embedded project_data.json)
+    void loadProjectData();
+    juce::String pluginId_;
+    juce::String apiBaseUrl_;
+    juce::String supabasePublishableKey_;
+    juce::var buildFlags_;
 
     //==============================================================================
     // DSP - Add your processing members here

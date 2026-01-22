@@ -1,0 +1,3 @@
+# WebUI build output directory
+# Run `npm run build` in web-ui/ to populate this folder
+# CI will build this automatically before the C++ build
