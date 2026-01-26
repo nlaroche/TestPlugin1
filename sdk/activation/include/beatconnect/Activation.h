@@ -6,17 +6,22 @@
  * Provides license activation, validation, and deactivation for plugins
  * distributed through the BeatConnect platform.
  *
+ * IMPORTANT: This is NOT a singleton. Each plugin processor should own its
+ * own Activation instance to avoid conflicts when multiple plugin instances
+ * or versions are loaded in a DAW.
+ *
  * Usage:
- *   beatconnect::Activation::Config config;
+ *   beatconnect::ActivationConfig config;
  *   config.apiBaseUrl = "https://xxx.supabase.co";
  *   config.pluginId = "your-project-uuid";
+ *   config.supabaseKey = "your-publishable-key";
  *
- *   auto& activation = beatconnect::Activation::getInstance();
- *   activation.configure(config);
+ *   // Create instance (store as member variable in your processor)
+ *   auto activation = beatconnect::Activation::create(config);
  *
- *   if (!activation.isActivated()) {
+ *   if (!activation->isActivated()) {
  *       // Show activation dialog
- *       auto status = activation.activate(userEnteredCode);
+ *       auto status = activation->activate(userEnteredCode);
  *       if (status == ActivationStatus::Valid) {
  *           // Success!
  *       }
@@ -31,24 +36,27 @@
 namespace beatconnect {
 
 // ==============================================================================
-// Debug Logging Utility
+// Debug Logging Utility (DEPRECATED - use Activation instance methods instead)
 // ==============================================================================
 
 /**
- * Cross-platform debug logging for BeatConnect plugins.
+ * @deprecated Use Activation::debugLog() and related instance methods instead.
  *
- * Logs are written to the user's app data folder:
- *   macOS:   ~/Library/Application Support/BeatConnect/<pluginName>/debug.log
- *   Windows: C:\Users\<user>\AppData\Roaming\BeatConnect\<pluginName>\debug.log
- *   Linux:   ~/.local/share/BeatConnect/<pluginName>/debug.log
+ * WARNING: This static class uses global state which causes issues when multiple
+ * plugin instances or versions are loaded in a DAW. Each plugin instance should
+ * use the debug methods on their own Activation instance instead.
  *
- * Usage:
- *   beatconnect::Debug::init("MyPlugin", true);  // Enable debug mode
- *   beatconnect::Debug::log("Starting activation...");
- *   beatconnect::Debug::log("Result: " + resultString);
- *   beatconnect::Debug::revealLogFile();  // Open folder containing log
+ * Old usage (DEPRECATED):
+ *   beatconnect::Debug::init("MyPlugin", true);
+ *   beatconnect::Debug::log("message");
+ *
+ * New usage (PREFERRED):
+ *   config.pluginName = "MyPlugin";
+ *   config.enableDebugLogging = true;
+ *   auto activation = Activation::create(config);
+ *   activation->debugLog("message");
  */
-class Debug {
+class [[deprecated("Use Activation instance debug methods instead")]] Debug {
 public:
     /**
      * Initialize debug logging for a plugin.
@@ -151,30 +159,44 @@ struct ActivationConfig {
 
     // Optional: How often to re-validate in seconds (default: 86400 = 24 hours, 0 = never)
     int revalidateIntervalSeconds = 86400;
+
+    // Optional: Plugin name for debug logging (e.g., "MyPlugin")
+    std::string pluginName;
+
+    // Optional: Enable debug logging (default: false)
+    bool enableDebugLogging = false;
 };
 
 // ==============================================================================
-// Activation Class (Singleton)
+// Activation Class (Instance-based, NOT singleton)
 // ==============================================================================
 
+/**
+ * IMPORTANT: This class is NOT a singleton. Each plugin instance should create
+ * its own Activation instance using the create() factory method. This avoids
+ * issues when multiple plugin instances or versions are loaded in a DAW.
+ */
 class Activation {
 public:
-    // Get singleton instance
-    static Activation& getInstance();
+    /**
+     * Create a new Activation instance with the given configuration.
+     * Each plugin processor should own its own instance.
+     *
+     * @param config Configuration options
+     * @return Unique pointer to configured Activation instance
+     */
+    static std::unique_ptr<Activation> create(const ActivationConfig& config);
 
-    // Prevent copying
+    // Destructor must be public for unique_ptr
+    ~Activation();
+
+    // Prevent copying (but allow move for unique_ptr)
     Activation(const Activation&) = delete;
     Activation& operator=(const Activation&) = delete;
 
     // =========================================================================
     // Configuration
     // =========================================================================
-
-    /**
-     * Configure the activation SDK. Must be called before any other methods.
-     * @param config Configuration options
-     */
-    void configure(const ActivationConfig& config);
 
     /**
      * Check if SDK has been configured.
@@ -280,7 +302,7 @@ public:
     std::string getMachineId() const;
 
     // =========================================================================
-    // Debug Logging
+    // Debug Logging (Instance-based)
     // =========================================================================
 
     using DebugCallback = std::function<void(const std::string&)>;
@@ -292,9 +314,30 @@ public:
      */
     void setDebugCallback(DebugCallback callback);
 
+    /**
+     * Log a debug message (if debug logging is enabled in config).
+     * Thread-safe. Each instance logs to its own file.
+     */
+    void debugLog(const std::string& message);
+
+    /**
+     * Get the path to this instance's debug log file.
+     */
+    std::string getDebugLogPath() const;
+
+    /**
+     * Open the folder containing the log file in the system file manager.
+     */
+    void revealDebugLog();
+
+    /**
+     * Check if debug logging is enabled for this instance.
+     */
+    bool isDebugEnabled() const;
+
 private:
-    Activation();
-    ~Activation();
+    // Private constructor - use create() factory method
+    explicit Activation(const ActivationConfig& config);
 
     class Impl;
     std::unique_ptr<Impl> pImpl;
