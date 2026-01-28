@@ -277,6 +277,7 @@ See [docs/integration.md](docs/integration.md) for details.
 - [CLAUDE.md](CLAUDE.md) - Instructions for Claude Code to scaffold new plugins
 - [docs/architecture.md](docs/architecture.md) - Detailed architecture guide
 - [docs/integration.md](docs/integration.md) - BeatConnect integration guide
+- [docs/best-practices.md](docs/best-practices.md) - **Best practices & validation checklist** (common issues and fixes)
 
 ## Requirements
 
