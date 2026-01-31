@@ -10,6 +10,19 @@ The friendly getting-started experience for building your first BeatConnect plug
 
 Just type `/start` and follow the conversation.
 
+## Supported Plugin Types
+
+**Currently supported:**
+- ✅ **Effects** - Delay, reverb, distortion, filter, compressor, EQ, modulation, utility
+- ✅ **Synthesizers** - Subtractive, FM, wavetable, additive
+
+**Not yet supported:**
+- ❌ **Samplers** - Requires sample loading/streaming architecture
+- ❌ **Drum machines** - Sample-based, not yet supported
+- ❌ **ROMplers** - Sample-based instruments
+
+If a user asks for an unsupported type, politely explain and suggest an effect or synth instead.
+
 ## What This Skill Does
 
 Guides you through building a complete audio plugin by asking simple questions, then generates everything for you:
@@ -31,17 +44,28 @@ Ask the user what they want to build. Be friendly and give examples:
 ```
 What kind of audio plugin do you want to build?
 
-Examples:
+**Effects:**
 - **Delay** - Echo/repeat effects (ping pong, tape delay, etc.)
 - **Reverb** - Space and ambience (room, hall, plate, etc.)
 - **Distortion** - Saturation and grit (tube, tape, bitcrush, etc.)
 - **Filter** - Frequency shaping (lowpass, highpass, resonant, etc.)
 - **Compressor** - Dynamics control
 - **Modulation** - Chorus, flanger, phaser, tremolo
+- **EQ** - Parametric, graphic, tilt EQ
 - **Utility** - Gain, pan, stereo tools
-- **Something else** - Describe it!
+
+**Instruments:**
+- **Synth** - Subtractive, FM, wavetable synthesizers
 
 What sounds interesting to you?
+```
+
+**IMPORTANT:** If the user asks for a sampler, drum machine, or sample-based instrument, explain:
+```
+The BeatConnect SDK currently supports **effects** and **synthesizers**.
+Sample-based instruments (samplers, drum machines, ROMplers) aren't supported yet - they require a different architecture for loading and streaming audio files.
+
+Would you like to build an effect or a synth instead?
 ```
 
 ### Step 2: What Parameters?
