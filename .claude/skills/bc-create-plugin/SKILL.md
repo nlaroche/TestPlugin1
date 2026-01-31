@@ -118,12 +118,12 @@ Your plugin name:
 
 Once you have all the info:
 
-1. **Use `/new-plugin`** to scaffold:
-   ```
-   /new-plugin <PluginName>
-   ```
+1. **Copy from `templates/`** to scaffold the project:
+   - Copy all template files to the new plugin directory
+   - Replace placeholders ({{PLUGIN_NAME}}, {{COMPANY_NAME}}, etc.)
+   - **IMPORTANT:** Copy the `.gitignore` from the SDK root to prevent committing build artifacts
 
-2. **Answer the skill's questions** with the gathered info:
+2. **Configure the project** with the gathered info:
    - Plugin type: Effect
    - Parameters: [the ones discussed]
    - Company name: Use their GitHub username or "BeatConnect"
@@ -197,6 +197,7 @@ You'll get downloadable installers for Windows and macOS once the build complete
 3. **Suggest sensible defaults** - They can customize later
 4. **Explain what's happening** - But don't drown them in technical details
 5. **Celebrate progress** - Building a plugin is exciting!
+6. **Always include .gitignore** - Copy from SDK root to prevent committing build artifacts (VST3s, node_modules, etc.)
 
 ---
 
