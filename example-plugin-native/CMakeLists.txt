@@ -1,18 +1,17 @@
 # ==============================================================================
-# BeatConnect Example Plugin (WebUI)
+# BeatConnect Example Plugin (Native JUCE UI)
 # ==============================================================================
-# This example demonstrates a modern plugin with React/WebView UI.
-# The UI is built with React + TypeScript and communicates with C++ via JUCE 8's
-# native WebBrowserComponent relay system.
+# This example demonstrates a traditional JUCE plugin with native UI components.
+# No WebView, no React - just standard JUCE sliders and components.
 #
 # Use this as a starting point if:
-# - You want a modern, web-based UI with hot reload during development
-# - You're comfortable with React/TypeScript
-# - You want maximum UI flexibility and easy styling
+# - You have an existing JUCE plugin you want to build with BeatConnect
+# - You prefer native JUCE UI over web technologies
+# - You want the simplest possible setup
 # ==============================================================================
 
 cmake_minimum_required(VERSION 3.22)
-project(ExamplePlugin VERSION 1.0.0 LANGUAGES CXX)
+project(ExamplePluginNative VERSION 1.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -20,12 +19,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # ==============================================================================
 # BeatConnect Configuration
 # ==============================================================================
-# WebUI will be auto-detected from web-ui/ directory
-option(EXAMPLE_PLUGIN_DEV_MODE "Enable development mode with Vite hot reload" OFF)
+# Explicitly disable WebUI for this example (would auto-detect anyway)
+set(BEATCONNECT_USE_WEBUI OFF)
 option(BEATCONNECT_ENABLE_ACTIVATION "Enable BeatConnect activation" OFF)
-
-# Map project-specific dev mode to generic name
-set(BEATCONNECT_DEV_MODE ${EXAMPLE_PLUGIN_DEV_MODE})
 
 # Include BeatConnect CMake helpers
 include(${CMAKE_SOURCE_DIR}/../cmake/BeatConnectPlugin.cmake)
@@ -39,7 +35,7 @@ beatconnect_fetch_juce()
 juce_add_plugin(${PROJECT_NAME}
     COMPANY_NAME "BeatConnect"
     PLUGIN_MANUFACTURER_CODE Beat
-    PLUGIN_CODE Expl
+    PLUGIN_CODE Exnt                    # Different from WebUI example
     FORMATS VST3 Standalone
     IS_SYNTH FALSE
     NEEDS_MIDI_INPUT FALSE
@@ -47,8 +43,8 @@ juce_add_plugin(${PROJECT_NAME}
     IS_MIDI_EFFECT FALSE
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
     COPY_PLUGIN_AFTER_BUILD TRUE
-    PRODUCT_NAME "Example Plugin"
-    NEEDS_WEBVIEW2 TRUE                 # Required for WebUI
+    PRODUCT_NAME "Example Plugin Native"
+    # No NEEDS_WEBVIEW2 - not needed for native UI
 )
 
 # ==============================================================================
@@ -70,7 +66,7 @@ target_link_libraries(${PROJECT_NAME}
     PRIVATE
         juce::juce_audio_utils
         juce::juce_dsp
-        juce::juce_gui_extra              # Required for WebBrowserComponent
+        # Note: juce_gui_extra not needed for native UI
 )
 
 # ==============================================================================

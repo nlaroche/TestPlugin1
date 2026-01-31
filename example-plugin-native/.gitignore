@@ -1,0 +1,25 @@
+# Build directories
+build/
+cmake-build-*/
+out/
+
+# IDE files
+.idea/
+.vs/
+.vscode/
+*.xcodeproj/
+*.xcworkspace/
+
+# JUCE artifacts
+*_artefacts/
+
+# macOS
+.DS_Store
+*.dSYM/
+
+# Windows
+*.pdb
+*.ilk
+
+# BeatConnect CI artifacts (injected during build)
+resources/project_data.json

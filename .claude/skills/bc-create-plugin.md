@@ -1,14 +1,14 @@
-# /start Skill
+# /bc-create-plugin Skill
 
 The friendly getting-started experience for building your first BeatConnect plugin. No C++ knowledge required.
 
 ## Usage
 
 ```
-/start
+/bc-create-plugin
 ```
 
-Just type `/start` and follow the conversation.
+Just type `/bc-create-plugin` and follow the conversation.
 
 ## Supported Plugin Types
 
