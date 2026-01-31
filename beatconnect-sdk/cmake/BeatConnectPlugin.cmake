@@ -197,11 +197,11 @@ endfunction()
 # ==============================================================================
 function(_beatconnect_setup_activation TARGET_NAME)
     if(BEATCONNECT_ENABLE_ACTIVATION)
-        # Find the SDK activation directory
+        # Find the SDK activation directory (supports multiple structures)
         set(ACTIVATION_PATHS
-            "${CMAKE_SOURCE_DIR}/beatconnect-sdk/sdk/activation"
-            "${CMAKE_SOURCE_DIR}/../sdk/activation"
-            "${CMAKE_SOURCE_DIR}/sdk/activation"
+            "${CMAKE_SOURCE_DIR}/../beatconnect-sdk/activation"  # plugin/ folder structure
+            "${CMAKE_SOURCE_DIR}/../activation"                   # example inside SDK
+            "${CMAKE_SOURCE_DIR}/beatconnect-sdk/activation"      # submodule structure
         )
 
         set(ACTIVATION_FOUND OFF)

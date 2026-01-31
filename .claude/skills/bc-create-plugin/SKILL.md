@@ -15,6 +15,26 @@ The friendly getting-started experience for building your first BeatConnect plug
 
 Just type `/bc-create-plugin` and follow the conversation.
 
+## Project Structure
+
+This repo has a specific structure - your plugin code goes in the `plugin/` folder:
+
+```
+repo-root/
+├── beatconnect-sdk/          # SDK (don't modify)
+│   ├── cmake/                # CMake helpers
+│   ├── activation/           # License activation
+│   ├── templates/            # File templates
+│   ├── example-plugin/       # Reference implementation
+│   └── docs/                 # Documentation
+├── plugin/                   # YOUR PLUGIN GOES HERE
+│   ├── CMakeLists.txt
+│   ├── Source/
+│   └── web-ui/
+├── CLAUDE.md
+└── .gitignore
+```
+
 ## Supported Plugin Types
 
 **Currently supported:**
@@ -33,7 +53,7 @@ If a user asks for an unsupported type, politely explain and suggest an effect o
 Guides you through building a complete audio plugin by asking simple questions, then generates everything for you:
 
 1. **Asks what you want to build** - Effect type, parameters, UI style
-2. **Scaffolds the project** - Uses `/new-plugin` internally with your choices
+2. **Scaffolds the project** - Creates files in `plugin/` folder
 3. **Implements the audio processing** - Writes the DSP code based on your description
 4. **Helps you test locally** - Builds and runs the plugin
 5. **Pushes to GitHub** - So BeatConnect cloud can build the final release
@@ -116,27 +136,31 @@ Your plugin name:
 
 ### Step 4: Scaffold and Implement
 
-Once you have all the info:
+Once you have all the info, create the plugin in the `plugin/` folder:
 
-1. **Copy from `templates/`** to scaffold the project:
-   - Copy all template files to the new plugin directory
-   - Replace placeholders ({{PLUGIN_NAME}}, {{COMPANY_NAME}}, etc.)
-   - **IMPORTANT:** Copy the `.gitignore` from the SDK root to prevent committing build artifacts
+1. **Check if `plugin/` folder exists and has content:**
+   - If it has existing code, ask user if they want to replace it
+   - If empty or doesn't exist, proceed
 
-2. **Configure the project** with the gathered info:
-   - Plugin type: Effect
-   - Parameters: [the ones discussed]
-   - Company name: Use their GitHub username or "BeatConnect"
+2. **Copy templates from `beatconnect-sdk/templates/`:**
+   - Copy all template files to `plugin/`
+   - Replace placeholders: `{{PLUGIN_NAME}}`, `{{PLUGIN_NAME_UPPER}}`, `{{COMPANY_NAME}}`, etc.
+   - Copy `.gitignore` from repo root
 
-3. **Implement the DSP** in `PluginProcessor.cpp`:
-   - Look at `example-plugin/` for reference patterns
+3. **Implement the DSP** in `plugin/Source/PluginProcessor.cpp`:
+   - Look at `beatconnect-sdk/example-plugin/` for reference patterns
    - Use JUCE's built-in DSP classes where possible
    - Keep it simple - this is their first plugin!
 
-4. **Update the React UI** in `web-ui/src/App.tsx`:
+4. **Implement the UI** in `plugin/web-ui/src/App.tsx`:
    - Add sliders/knobs for each parameter
    - Use the hooks from `useJuceParam.ts`
    - Keep the UI clean and functional
+
+**CMakeLists.txt must include:**
+```cmake
+include(${CMAKE_SOURCE_DIR}/../beatconnect-sdk/cmake/BeatConnectPlugin.cmake)
+```
 
 ### Step 5: Build and Test
 
@@ -146,13 +170,14 @@ Guide them through local testing:
 Let's build and test your plugin locally!
 
 1. First, install web dependencies:
-   cd web-ui && npm install
+   cd plugin/web-ui && npm install
 
 2. Start the web dev server (for hot reload):
    npm run dev
 
 3. In another terminal, build the plugin:
-   cmake -B build -D<PLUGIN_NAME>_DEV_MODE=ON
+   cd plugin
+   cmake -B build -D<PLUGIN_NAME_UPPER>_DEV_MODE=ON
    cmake --build build
 
 4. Run the standalone version to test:
@@ -197,7 +222,8 @@ You'll get downloadable installers for Windows and macOS once the build complete
 3. **Suggest sensible defaults** - They can customize later
 4. **Explain what's happening** - But don't drown them in technical details
 5. **Celebrate progress** - Building a plugin is exciting!
-6. **Always include .gitignore** - Copy from SDK root to prevent committing build artifacts (VST3s, node_modules, etc.)
+6. **Always use the `plugin/` folder** - That's where plugin code goes
+7. **Reference SDK with `../beatconnect-sdk/`** - Don't modify SDK files
 
 ---
 
@@ -268,7 +294,7 @@ This is usually a constructor order issue. Let me check your PluginEditor.cpp - 
 
 ## Reference
 
-- Full technical details: `/new-plugin` skill
-- Working example: `example-plugin/` directory
-- Patterns and troubleshooting: `docs/patterns.md`
+- Working example: `beatconnect-sdk/example-plugin/`
+- Templates: `beatconnect-sdk/templates/`
+- Patterns and troubleshooting: `beatconnect-sdk/docs/patterns.md`
 - SDK documentation: `CLAUDE.md`
