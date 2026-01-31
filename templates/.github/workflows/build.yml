@@ -2,6 +2,8 @@
 # BeatConnect Plugin Build Workflow
 # ==============================================================================
 # This workflow builds your plugin for Windows and macOS.
+# Supports both WebUI (React) and native JUCE UI plugins.
+#
 # For full BeatConnect integration (signing, distribution), see docs/integration.md
 # ==============================================================================
 
@@ -25,40 +27,74 @@ env:
 
 jobs:
   # ==============================================================================
-  # Build Web UI
+  # Check for WebUI (determines if web build is needed)
+  # ==============================================================================
+  check-webui:
+    runs-on: ubuntu-latest
+    outputs:
+      has_webui: ${{ steps.check.outputs.has_webui }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for WebUI directory
+        id: check
+        run: |
+          if [ -d "web-ui" ] || [ -d "web" ]; then
+            echo "has_webui=true" >> $GITHUB_OUTPUT
+            echo "WebUI directory found - will build React UI"
+          else
+            echo "has_webui=false" >> $GITHUB_OUTPUT
+            echo "No WebUI directory - native JUCE UI plugin"
+          fi
+
+  # ==============================================================================
+  # Build Web UI (only if web-ui/ or web/ directory exists)
   # ==============================================================================
   build-web:
+    needs: check-webui
+    if: needs.check-webui.outputs.has_webui == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Determine web directory
+        id: webdir
+        run: |
+          if [ -d "web-ui" ]; then
+            echo "dir=web-ui" >> $GITHUB_OUTPUT
+          else
+            echo "dir=web" >> $GITHUB_OUTPUT
+          fi
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: web/package-lock.json
+          cache-dependency-path: ${{ steps.webdir.outputs.dir }}/package-lock.json
 
       - name: Install web dependencies
-        working-directory: web
+        working-directory: ${{ steps.webdir.outputs.dir }}
         run: npm ci
 
       - name: Build web UI
-        working-directory: web
+        working-directory: ${{ steps.webdir.outputs.dir }}
         run: npm run build
 
       - name: Upload web artifacts
         uses: actions/upload-artifact@v4
         with:
           name: web-dist
-          path: web/dist/
+          path: ${{ steps.webdir.outputs.dir }}/dist/
           retention-days: 1
 
   # ==============================================================================
   # Build Plugin (Windows & macOS)
   # ==============================================================================
   build:
-    needs: build-web
+    needs: [check-webui, build-web]
+    # Run even if build-web was skipped (native UI plugins)
+    if: always() && !cancelled() && !failure()
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -79,10 +115,11 @@ jobs:
           submodules: recursive
 
       - name: Download web artifacts
+        if: needs.check-webui.outputs.has_webui == 'true'
         uses: actions/download-artifact@v4
         with:
           name: web-dist
-          path: web/dist/
+          path: Resources/WebUI/
 
       # Setup CMake
       - name: Setup CMake
