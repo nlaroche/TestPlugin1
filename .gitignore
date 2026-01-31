@@ -1,0 +1,31 @@
+# Build outputs
+build/
+cmake-build-*/
+out/
+
+# IDE
+.idea/
+.vscode/
+*.xcodeproj/
+*.xcworkspace/
+*.sln
+*.vcxproj*
+
+# Dependencies
+node_modules/
+
+# Web build output (should be built fresh)
+web/dist/
+**/Resources/WebUI/assets/
+**/Resources/WebUI/index.html
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.log
+
+# Keep gitkeep files
+!.gitkeep

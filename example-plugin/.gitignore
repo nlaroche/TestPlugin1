@@ -1,0 +1,27 @@
+# Build outputs
+build/
+cmake-build-*/
+out/
+
+# IDE
+.idea/
+.vscode/
+*.xcodeproj/
+*.xcworkspace/
+*.sln
+*.vcxproj*
+
+# Dependencies
+node_modules/
+
+# Web build output (rebuild from web-ui/)
+Resources/WebUI/assets/
+Resources/WebUI/index.html
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.log
