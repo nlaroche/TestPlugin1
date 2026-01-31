@@ -23,6 +23,9 @@ web/dist/
 .DS_Store
 Thumbs.db
 
+# Claude Code local settings (user-specific)
+.claude/settings.local.json
+
 # Temporary files
 *.tmp
 *.log

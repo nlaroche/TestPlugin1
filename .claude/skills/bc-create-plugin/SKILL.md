@@ -1,3 +1,8 @@
+---
+name: bc-create-plugin
+description: Friendly getting-started guide for building your first BeatConnect plugin. Use when someone wants to create a new audio plugin without C++ knowledge.
+---
+
 # /bc-create-plugin Skill
 
 The friendly getting-started experience for building your first BeatConnect plugin. No C++ knowledge required.
