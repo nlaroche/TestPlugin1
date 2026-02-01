@@ -32,7 +32,7 @@ This SDK is designed to work seamlessly with AI coding assistants like [Claude C
 
 | Skill | What it does |
 |-------|--------------|
-| `/new-plugin` | Scaffold a complete new plugin from templates with your branding |
+| `/bc-create-plugin` | Interactive guide to build your first plugin - no C++ knowledge required! |
 
 ### Example Prompts
 
@@ -40,8 +40,9 @@ Here are some ways to work with Claude on your plugin:
 
 **Starting a new project:**
 ```
-/new-plugin "LoFi Tape" by "AudioCraft" - a vintage tape saturation plugin
+/bc-create-plugin
 ```
+Then just follow the conversation - Claude will ask what kind of plugin you want to build.
 
 **Adding features:**
 ```
@@ -78,49 +79,88 @@ The SDK includes a `CLAUDE.md` file with detailed context about the codebase, so
 
 Once you have developer access, you can start building locally:
 
-### 1. Create a new plugin from template
+### 1. Create your plugin repository
 
-```bash
-# Clone this SDK
-git clone https://github.com/BeatConnect/beatconnect_plugin_sdk.git
+**Option A: Use GitHub Template (Recommended)**
+1. Go to the [BeatConnect Plugin SDK](https://github.com/BeatConnect/beatconnect_plugin_sdk) repository
+2. Click **"Use this template"** → **"Create a new repository"**
+3. Name your repo and create it (this gives you a clean single-commit history)
 
-# Copy templates to your new plugin directory
-cp -r beatconnect_plugin_sdk/templates my-plugin
-cd my-plugin
+**Option B: Fork the SDK**
+1. Fork the repository on GitHub
+2. Clone your fork locally
 
-# Replace placeholders in all files:
-# {{PLUGIN_NAME}} -> YourPluginName
-# {{PLUGIN_NAME_UPPER}} -> YOUR_PLUGIN_NAME
-# {{COMPANY_NAME}} -> YourCompany
-# {{COMPANY_NAME_LOWER}} -> yourcompany
-# {{PLUGIN_CODE}} -> Ypln (4 chars)
-# {{MANUFACTURER_CODE}} -> Ycom (4 chars)
+### 2. Configure your repository for BeatConnect
+
+**Add the required topic** so BeatConnect can discover your plugin:
+1. Go to your repository on GitHub
+2. Click the ⚙️ gear icon next to "About" (top right of repo page)
+3. Under "Topics", add: `beatconnect-plugin`
+4. Click "Save changes"
+
+### 3. Set up your plugin
+
+Your repo has this structure:
+```
+your-repo/
+├── beatconnect-sdk/    # SDK (don't modify)
+├── plugin/             # YOUR PLUGIN CODE GOES HERE
+│   ├── CMakeLists.txt
+│   ├── Source/
+│   └── web-ui/
+└── CLAUDE.md
 ```
 
-### 2. Build the web UI
+To customize your plugin, edit files in `plugin/` and replace placeholders:
+- `{{PLUGIN_NAME}}` → YourPluginName
+- `{{PLUGIN_NAME_UPPER}}` → YOUR_PLUGIN_NAME
+- `{{COMPANY_NAME}}` → YourCompany
+- `{{PLUGIN_CODE}}` → Ypln (4 chars)
+- `{{MANUFACTURER_CODE}}` → Ycom (4 chars)
+
+Or use Claude Code with `/bc-create-plugin` to scaffold everything automatically!
+
+### 4. Build the web UI
 
 ```bash
-cd web
+cd plugin/web-ui
 npm install
 npm run build
-cd ..
+cd ../..
 ```
 
-### 3. Build the plugin
+### 5. Build the plugin
 
 ```bash
+cd plugin
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release
 ```
 
-### 4. Find your plugin
+### 6. Find your plugin
 
-- **Windows**: `build/YourPluginName_artefacts/Release/VST3/`
-- **macOS**: `build/YourPluginName_artefacts/Release/VST3/` and `AU/`
+- **Windows**: `plugin/build/YourPluginName_artefacts/Release/VST3/`
+- **macOS**: `plugin/build/YourPluginName_artefacts/Release/VST3/` and `AU/`
+
+### 7. Updating the SDK (when new versions are released)
+
+If you need to pull updates from the upstream SDK, **always use `--squash`** to keep your commit history clean:
+
+```bash
+# Add upstream remote (only once)
+git remote add upstream https://github.com/BeatConnect/beatconnect_plugin_sdk.git
+
+# Pull updates with --squash (keeps your history clean)
+git fetch upstream
+git merge --squash upstream/main
+git commit -m "chore: update SDK to latest"
+```
+
+**Important:** Never use a regular `git merge upstream/main` - it will pollute your repo with the entire SDK development history.
 
 ## SDK Components
 
-### Activation SDK (`sdk/activation/`)
+### Activation SDK (`beatconnect-sdk/activation/`)
 
 License activation with machine fingerprinting. **No manual configuration required** - credentials are automatically injected by the BeatConnect build system.
 
@@ -207,7 +247,7 @@ Log file locations:
 - **Windows**: `%APPDATA%/BeatConnect/<pluginName>/debug.log`
 - **Linux**: `~/.local/share/BeatConnect/<pluginName>/debug.log`
 
-### Asset Downloader (`sdk/activation/`)
+### Asset Downloader (`beatconnect-sdk/activation/`)
 
 Download samples, presets, and other content:
 
@@ -229,7 +269,7 @@ auto [status, filePath] = downloader.download(assetId,
     });
 ```
 
-### Preset Manager (`templates/Source/`)
+### Preset Manager (`beatconnect-sdk/templates/Source/`)
 
 User and factory preset management with C++/React integration:
 
@@ -286,44 +326,51 @@ User presets are stored as XML files in:
 
 ### Using the SDK in your plugin
 
-Add as a submodule:
-
-```bash
-git submodule add https://github.com/beatconnect/beatconnect-plugin-sdk beatconnect-sdk
-```
-
-In your CMakeLists.txt:
+The SDK is already included in `beatconnect-sdk/`. Your plugin's CMakeLists.txt should include:
 
 ```cmake
-add_subdirectory(beatconnect-sdk/sdk/activation)
-target_link_libraries(${PROJECT_NAME} PRIVATE beatconnect_activation)
+# Include BeatConnect CMake helpers
+include(${CMAKE_SOURCE_DIR}/../beatconnect-sdk/cmake/BeatConnectPlugin.cmake)
+
+# Fetch JUCE automatically
+beatconnect_fetch_juce()
+
+# After defining your plugin target:
+beatconnect_configure_plugin(${PROJECT_NAME})
 ```
+
+This automatically handles JUCE setup, WebView configuration, and platform-specific settings.
 
 ## Project Structure
 
 ```
-my-plugin/
-├── CMakeLists.txt          # Build configuration
-├── src/
-│   ├── PluginProcessor.cpp # Audio processing (C++)
-│   ├── PluginProcessor.h
-│   ├── PluginEditor.cpp    # WebView UI host + JUCE 8 relays
-│   ├── PluginEditor.h
-│   ├── ParameterIDs.h      # Parameter ID constants
-│   ├── PresetManager.h     # Preset save/load system
-│   └── PresetManager.cpp
-├── web/                    # React UI
-│   ├── package.json
-│   ├── src/
-│   │   ├── App.tsx
-│   │   ├── main.tsx
-│   │   ├── lib/
-│   │   │   └── juce-bridge.ts   # JUCE 8 frontend API
-│   │   └── hooks/
-│   │       ├── useJuceParam.ts  # React hooks for params
-│   │       └── usePresets.ts    # Preset management hook
-│   └── vite.config.ts
-├── beatconnect-sdk/        # SDK submodule (optional)
+your-repo/
+├── beatconnect-sdk/              # SDK (don't modify these files)
+│   ├── cmake/                    # CMake helpers
+│   ├── activation/               # License activation SDK
+│   ├── templates/                # File templates for reference
+│   ├── example-plugin/           # Reference implementation
+│   └── docs/                     # Documentation
+├── plugin/                       # YOUR PLUGIN (edit these files)
+│   ├── CMakeLists.txt            # Build configuration
+│   ├── Source/
+│   │   ├── PluginProcessor.cpp   # Audio processing (C++)
+│   │   ├── PluginProcessor.h
+│   │   ├── PluginEditor.cpp      # WebView UI host + JUCE 8 relays
+│   │   ├── PluginEditor.h
+│   │   └── ParameterIDs.h        # Parameter ID constants
+│   ├── web-ui/                   # React UI
+│   │   ├── package.json
+│   │   ├── src/
+│   │   │   ├── App.tsx
+│   │   │   ├── main.tsx
+│   │   │   ├── lib/
+│   │   │   │   └── juce-bridge.ts    # JUCE 8 frontend API
+│   │   │   └── hooks/
+│   │   │       └── useJuceParam.ts   # React hooks for params
+│   │   └── vite.config.ts
+│   └── Resources/WebUI/          # Built web assets (auto-generated)
+├── CLAUDE.md                     # AI assistant instructions
 └── .github/workflows/
     └── build.yml
 ```
@@ -392,11 +439,12 @@ const gain = useSliderParam('gain', { defaultValue: 0.5 });
 
 1. Start web dev server:
    ```bash
-   cd web && npm run dev
+   cd plugin/web-ui && npm run dev
    ```
 
 2. Build plugin in dev mode:
    ```bash
+   cd plugin
    cmake -B build -DYOUR_PLUGIN_NAME_DEV_MODE=ON
    cmake --build build
    ```
@@ -407,11 +455,12 @@ const gain = useSliderParam('gain', { defaultValue: 0.5 });
 
 1. Build web UI:
    ```bash
-   cd web && npm run build
+   cd plugin/web-ui && npm run build
    ```
 
 2. Build plugin:
    ```bash
+   cd plugin
    cmake -B build -DCMAKE_BUILD_TYPE=Release
    cmake --build build --config Release
    ```
@@ -431,7 +480,7 @@ See [docs/integration.md](docs/integration.md) for detailed setup instructions.
 
 ## Examples
 
-### Example Plugin (`examples/example-plugin/`)
+### Example Plugin (`beatconnect-sdk/example-plugin/`)
 
 A complete, buildable example demonstrating all correct patterns:
 - JUCE 8 WebView parameter binding
@@ -440,7 +489,7 @@ A complete, buildable example demonstrating all correct patterns:
 - State persistence
 
 ```bash
-cd examples/example-plugin
+cd beatconnect-sdk/example-plugin
 
 # Build web UI
 cd web-ui && npm install && npm run build && cd ..
@@ -453,9 +502,9 @@ cmake --build build --config Release
 ## Documentation
 
 - [CLAUDE.md](CLAUDE.md) - Instructions for Claude Code to scaffold new plugins
-- [docs/architecture.md](docs/architecture.md) - Detailed architecture guide
-- [docs/integration.md](docs/integration.md) - BeatConnect integration guide
-- [docs/best-practices.md](docs/best-practices.md) - **Best practices & validation checklist** (common issues and fixes)
+- [beatconnect-sdk/docs/architecture.md](beatconnect-sdk/docs/architecture.md) - Detailed architecture guide
+- [beatconnect-sdk/docs/integration.md](beatconnect-sdk/docs/integration.md) - BeatConnect integration guide
+- [beatconnect-sdk/docs/best-practices.md](beatconnect-sdk/docs/best-practices.md) - **Best practices & validation checklist** (common issues and fixes)
 
 ## Requirements
 
