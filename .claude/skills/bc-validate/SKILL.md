@@ -126,6 +126,36 @@ Check for:
 
 **If build fails, this is a CRITICAL FAILURE.**
 
+### Step 7c: Check WebUI Resource Path (Web UI only)
+
+**CRITICAL for VST3 bundles.** Check `plugin/Source/PluginEditor.cpp` for proper resource path handling:
+
+```cpp
+// CORRECT - handles both Standalone and VST3 bundle layouts:
+resourcesDir = executableDir.getChildFile("Resources").getChildFile("WebUI");
+if (!resourcesDir.isDirectory())
+    resourcesDir = executableDir.getParentDirectory().getChildFile("Resources").getChildFile("WebUI");
+```
+
+**Run this check:**
+```bash
+grep -A 2 "resourcesDir" plugin/Source/PluginEditor.cpp | grep -E "getParentDirectory.*Resources"
+```
+
+If NOT found, **WARN**:
+```
+WARNING: PluginEditor.cpp may not handle VST3 bundle resource paths!
+VST3 bundles need: executableDir.getParentDirectory().getChildFile("Resources")
+This will cause "Error code: 13" when loading the plugin.
+```
+
+The VST3 bundle structure is:
+```
+Plugin.vst3/Contents/
+├── x86_64-win/Plugin.vst3  ← executable
+└── Resources/WebUI/         ← resources (sibling, not child!)
+```
+
 ### Step 8: Parameter Sync Check (Web UI only)
 
 Compare parameter IDs between:

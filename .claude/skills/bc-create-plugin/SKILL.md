@@ -396,6 +396,16 @@ Let's debug this. First, try the Standalone version - if that works, the issue i
 This is usually a constructor order issue. Let me check your PluginEditor.cpp - the WebView needs to be created in a specific order.
 ```
 
+**"Error code: 13" when loading VST3**:
+```
+This means the WebUI resources weren't found. VST3 bundles have a different structure - the Resources folder is a sibling of the executable folder, not inside it.
+
+Fix: The PluginEditor.cpp must check multiple paths:
+  resourcesDir = executableDir.getChildFile("Resources").getChildFile("WebUI");
+  if (!resourcesDir.isDirectory())
+      resourcesDir = executableDir.getParentDirectory().getChildFile("Resources").getChildFile("WebUI");
+```
+
 **Validation failed**:
 ```
 The validation found some issues. Let me fix them before we continue...
