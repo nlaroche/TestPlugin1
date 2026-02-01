@@ -28,10 +28,12 @@ If a user asks for an unsupported type, politely explain and suggest an effect o
 Guides you through building a complete audio plugin by asking simple questions, then generates everything for you:
 
 1. **Asks what you want to build** - Effect type, parameters, UI style
-2. **Scaffolds the project** - Uses `/new-plugin` internally with your choices
-3. **Implements the audio processing** - Writes the DSP code based on your description
-4. **Helps you test locally** - Builds and runs the plugin
-5. **Pushes to GitHub** - So BeatConnect cloud can build the final release
+2. **Asks about frontend** - Web UI (React) or Native JUCE UI
+3. **Scaffolds the project** - Uses `/new-plugin` internally with your choices
+4. **Implements the audio processing** - Writes the DSP code based on your description
+5. **Validates the project** - Runs `/bc-validate` to catch issues early
+6. **Helps you test locally** - Builds and runs the plugin
+7. **Pushes to GitHub** - So BeatConnect cloud can build the final release
 
 ---
 
@@ -96,7 +98,31 @@ Want the standard setup, or something custom?
 (e.g., "add a 3-band EQ" or "make it sound like a tube amp")
 ```
 
-### Step 3: Plugin Name
+### Step 3: Frontend Choice
+
+**NEW: Ask about UI preference:**
+
+```
+How do you want to build the user interface?
+
+**Web UI (Recommended for beginners)**
+- Uses React/TypeScript for the UI
+- Hot reload during development - see changes instantly
+- Modern web technologies, easier to style
+- Reference: example-plugin/
+
+**Native JUCE UI**
+- Uses JUCE's C++ UI components
+- More traditional approach, full C++ codebase
+- Better for complex custom graphics
+- Reference: example-plugin-native/
+
+Which do you prefer?
+```
+
+**Default to Web UI** if the user is unsure or doesn't have a preference.
+
+### Step 4: Plugin Name
 
 Ask for a name:
 
@@ -109,7 +135,7 @@ Examples: "TapeDelay", "WarmDrive", "SpaceVerb"
 Your plugin name:
 ```
 
-### Step 4: Scaffold and Implement
+### Step 5: Scaffold and Implement
 
 Once you have all the info:
 
@@ -119,34 +145,64 @@ Once you have all the info:
    ```
 
 2. **Answer the skill's questions** with the gathered info:
-   - Plugin type: Effect
+   - Plugin type: Effect or Instrument
+   - Frontend: Web UI or Native JUCE
    - Parameters: [the ones discussed]
    - Company name: Use their GitHub username or "BeatConnect"
 
 3. **Implement the DSP** in `PluginProcessor.cpp`:
-   - Look at `example-plugin/` for reference patterns
+   - Look at the appropriate example for reference:
+     - Web UI: `example-plugin/`
+     - Native: `example-plugin-native/`
    - Use JUCE's built-in DSP classes where possible
    - Keep it simple - this is their first plugin!
 
-4. **Update the React UI** in `web-ui/src/App.tsx`:
+4. **Implement the UI**:
+
+   **For Web UI:**
+   - Update `web-ui/src/App.tsx`
    - Add sliders/knobs for each parameter
    - Use the hooks from `useJuceParam.ts`
    - Keep the UI clean and functional
 
-### Step 5: Build and Test
+   **For Native JUCE UI:**
+   - Update `Source/PluginEditor.cpp`
+   - Add juce::Slider, juce::Label, etc. for each parameter
+   - Use SliderAttachment for parameter binding
+   - Keep the layout simple
+
+### Step 6: Validate the Project
+
+**ALWAYS run validation after scaffolding:**
+
+```
+Let me validate the project to make sure everything is set up correctly...
+```
+
+Run the `/bc-validate` checks:
+- Structure validation
+- CMake configuration
+- Frontend validation (web or native)
+- Parameter sync check
+
+If validation fails, fix the issues before proceeding.
+
+### Step 7: Build and Test
 
 Guide them through local testing:
 
+**For Web UI plugins:**
 ```
 Let's build and test your plugin locally!
 
 1. First, install web dependencies:
-   cd web-ui && npm install
+   cd plugin/web-ui && npm install
 
 2. Start the web dev server (for hot reload):
    npm run dev
 
 3. In another terminal, build the plugin:
+   cd plugin
    cmake -B build -D<PLUGIN_NAME>_DEV_MODE=ON
    cmake --build build
 
@@ -156,7 +212,22 @@ Let's build and test your plugin locally!
 You should see your plugin UI! Try the controls and make sure audio passes through.
 ```
 
-### Step 6: Push to GitHub
+**For Native JUCE UI plugins:**
+```
+Let's build and test your plugin locally!
+
+1. Configure the build:
+   cd plugin
+   cmake -B build
+   cmake --build build
+
+2. Run the standalone version to test:
+   ./build/<PluginName>_artefacts/Standalone/<PluginName>
+
+You should see your plugin UI! Try the controls and make sure audio passes through.
+```
+
+### Step 8: Push to GitHub
 
 Help them commit and push:
 
@@ -189,9 +260,76 @@ You'll get downloadable installers for Windows and macOS once the build complete
 
 1. **Keep it conversational** - This is for noobs, not C++ experts
 2. **One step at a time** - Don't overwhelm with options
-3. **Suggest sensible defaults** - They can customize later
+3. **Suggest sensible defaults** - Web UI for beginners, they can customize later
 4. **Explain what's happening** - But don't drown them in technical details
-5. **Celebrate progress** - Building a plugin is exciting!
+5. **Validate early** - Run /bc-validate to catch issues before they push
+6. **Celebrate progress** - Building a plugin is exciting!
+
+---
+
+## Frontend-Specific Details
+
+### Web UI Structure
+```
+plugin/
+├── CMakeLists.txt          # BEATCONNECT_USE_WEBUI=ON
+├── Source/
+│   ├── PluginProcessor.cpp
+│   ├── PluginProcessor.h
+│   ├── PluginEditor.cpp    # Creates WebBrowserComponent
+│   ├── PluginEditor.h
+│   └── ParameterIDs.h
+└── web-ui/
+    ├── package.json
+    ├── src/
+    │   ├── App.tsx         # Your UI components
+    │   └── hooks/
+    │       └── useJuceParam.ts
+    └── dist/               # Built by npm run build
+```
+
+### Native JUCE UI Structure
+```
+plugin/
+├── CMakeLists.txt          # BEATCONNECT_USE_WEBUI=OFF (or not set)
+├── Source/
+│   ├── PluginProcessor.cpp
+│   ├── PluginProcessor.h
+│   ├── PluginEditor.cpp    # JUCE components (Slider, Label, etc.)
+│   ├── PluginEditor.h
+│   └── ParameterIDs.h
+└── (no web-ui folder)
+```
+
+### CMake Differences
+
+**Web UI CMakeLists.txt:**
+```cmake
+juce_add_plugin(${PROJECT_NAME}
+    NEEDS_WEBVIEW2 TRUE    # Required for web UI
+    # ...
+)
+
+target_compile_definitions(${PROJECT_NAME}
+    PUBLIC
+        JUCE_WEB_BROWSER=1
+        BEATCONNECT_USE_WEBUI=1
+)
+```
+
+**Native UI CMakeLists.txt:**
+```cmake
+juce_add_plugin(${PROJECT_NAME}
+    NEEDS_WEBVIEW2 FALSE   # Not needed
+    # ...
+)
+
+target_compile_definitions(${PROJECT_NAME}
+    PUBLIC
+        JUCE_WEB_BROWSER=0
+        BEATCONNECT_USE_WEBUI=0
+)
+```
 
 ---
 
@@ -253,9 +391,15 @@ Don't worry, build errors are normal! Paste the error message and I'll help you 
 Let's debug this. First, try the Standalone version - if that works, the issue is with the plugin format. Check the build output for any warnings about VST3/AU.
 ```
 
-**UI is black/blank**:
+**UI is black/blank (Web UI)**:
 ```
 This is usually a constructor order issue. Let me check your PluginEditor.cpp - the WebView needs to be created in a specific order.
+```
+
+**Validation failed**:
+```
+The validation found some issues. Let me fix them before we continue...
+[Address each issue from /bc-validate output]
 ```
 
 ---
@@ -263,6 +407,8 @@ This is usually a constructor order issue. Let me check your PluginEditor.cpp - 
 ## Reference
 
 - Full technical details: `/new-plugin` skill
-- Working example: `example-plugin/` directory
+- Validation: `/bc-validate` skill
+- Web UI example: `example-plugin/` directory
+- Native UI example: `example-plugin-native/` directory
 - Patterns and troubleshooting: `docs/patterns.md`
 - SDK documentation: `CLAUDE.md`
