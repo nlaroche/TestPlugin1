@@ -59,6 +59,8 @@ private:
     void setupActivationEvents();
     void sendVisualizerData();
     void sendActivationState();
+    void handleActivate(const juce::var& params);
+    void sendActivationResult(bool success, const juce::String& status, const juce::String& message);
 
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DelayWaveEditor)

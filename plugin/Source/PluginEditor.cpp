@@ -103,9 +103,12 @@ void DelayWaveEditor::setupWebView()
         .withOptionsFrom(*modDepthRelay)
         .withOptionsFrom(*toneRelay)
         .withOptionsFrom(*bypassRelay)
-        // Activation status event listener
+        // Activation event listeners
         .withEventListener("getActivationStatus", [this](const juce::var&) {
             sendActivationState();
+        })
+        .withEventListener("activate", [this](const juce::var& params) {
+            handleActivate(params);
         })
         .withWinWebView2Options(
             juce::WebBrowserComponent::Options::WinWebView2()
@@ -178,25 +181,90 @@ void DelayWaveEditor::sendActivationState()
         return;
 
 #if BEATCONNECT_ACTIVATION_ENABLED
-    auto& activation = beatconnect::Activation::getInstance();
-
-    juce::DynamicObject::Ptr data = new juce::DynamicObject();
-    data->setProperty("isConfigured", processorRef.hasActivationEnabled());
-    data->setProperty("isActivated", activation.isActivated());
-
-    if (auto info = activation.getActivationInfo())
+    auto* activation = processorRef.getActivation();
+    if (activation)
     {
-        data->setProperty("activationCode", juce::String(info->activationCode));
-        data->setProperty("expiresAt", juce::String(info->expiresAt));
-    }
+        juce::DynamicObject::Ptr data = new juce::DynamicObject();
+        data->setProperty("isConfigured", processorRef.hasActivationEnabled());
+        data->setProperty("isActivated", activation->isActivated());
 
-    webView->emitEventIfBrowserIsVisible("activationState", juce::var(data.get()));
+        if (auto info = activation->getActivationInfo())
+        {
+            data->setProperty("activationCode", juce::String(info->activationCode));
+            data->setProperty("expiresAt", juce::String(info->expiresAt));
+        }
+
+        webView->emitEventIfBrowserIsVisible("activationState", juce::var(data.get()));
+    }
+    else
+    {
+        // Activation SDK not initialized - treat as not configured
+        juce::DynamicObject::Ptr data = new juce::DynamicObject();
+        data->setProperty("isConfigured", false);
+        data->setProperty("isActivated", true);
+        webView->emitEventIfBrowserIsVisible("activationState", juce::var(data.get()));
+    }
 #else
     juce::DynamicObject::Ptr data = new juce::DynamicObject();
     data->setProperty("isConfigured", false);  // No activation configured
     data->setProperty("isActivated", true);
     webView->emitEventIfBrowserIsVisible("activationState", juce::var(data.get()));
 #endif
+}
+
+void DelayWaveEditor::handleActivate(const juce::var& params)
+{
+    if (!webView)
+        return;
+
+    auto code = params.getProperty("code", "").toString().toStdString();
+    if (code.empty())
+    {
+        sendActivationResult(false, "Invalid", "No activation code provided");
+        return;
+    }
+
+#if BEATCONNECT_ACTIVATION_ENABLED
+    auto* activation = processorRef.getActivation();
+    if (!activation)
+    {
+        sendActivationResult(false, "NotConfigured", "Activation not configured");
+        return;
+    }
+
+    // Perform activation asynchronously
+    activation->activateAsync(code, [this](beatconnect::ActivationStatus status) {
+        juce::MessageManager::callAsync([this, status]() {
+            bool success = (status == beatconnect::ActivationStatus::Valid ||
+                           status == beatconnect::ActivationStatus::AlreadyActive);
+            sendActivationResult(success,
+                                beatconnect::activationStatusToString(status),
+                                success ? "" : "Activation failed");
+
+            if (success)
+            {
+                sendActivationState();
+            }
+        });
+    });
+#else
+    // Activation not compiled in - always succeed for testing
+    sendActivationResult(true, "Valid", "");
+#endif
+}
+
+void DelayWaveEditor::sendActivationResult(bool success, const juce::String& status, const juce::String& message)
+{
+    if (!webView)
+        return;
+
+    juce::DynamicObject::Ptr data = new juce::DynamicObject();
+    data->setProperty("success", success);
+    data->setProperty("status", status);
+    if (message.isNotEmpty())
+        data->setProperty("message", message);
+
+    webView->emitEventIfBrowserIsVisible("activationResult", juce::var(data.get()));
 }
 
 //==============================================================================

@@ -10,7 +10,7 @@
 # ==============================================================================
 
 cmake_minimum_required(VERSION 3.22)
-project(BeatConnectPluginWrapper LANGUAGES CXX)
+project(BeatConnectPluginWrapper LANGUAGES C CXX)
 
 # Detect project structure and include the appropriate CMakeLists.txt
 if(EXISTS "${CMAKE_SOURCE_DIR}/plugin/CMakeLists.txt")

@@ -45,7 +45,7 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  gap: 20px;
   background: linear-gradient(180deg, var(--bg-dark) 0%, var(--bg-darker) 100%);
 }
 
@@ -58,6 +58,7 @@ body {
   background-clip: text;
   color: transparent;
   text-shadow: 0 0 60px var(--accent-dim);
+  margin-bottom: 10px;
 }
 
 .activation-status {
@@ -65,6 +66,102 @@ body {
   color: var(--text-muted);
   letter-spacing: 0.15em;
   text-transform: uppercase;
+}
+
+.activation-title {
+  font-size: 14px;
+  color: var(--text-secondary);
+  letter-spacing: 0.1em;
+  margin-bottom: 8px;
+}
+
+.activation-form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  max-width: 400px;
+}
+
+.activation-input {
+  width: 100%;
+  padding: 14px 20px;
+  background: var(--bg-mid);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 18px;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  letter-spacing: 0.15em;
+  text-align: center;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.activation-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+.activation-input::placeholder {
+  color: var(--text-muted);
+  letter-spacing: 0.2em;
+}
+
+.activation-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.activation-button {
+  width: 100%;
+  padding: 14px 32px;
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  color: var(--bg-darker);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: transform 0.1s, opacity 0.2s;
+}
+
+.activation-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.activation-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.activation-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.activation-error {
+  color: #ff6b6b;
+  font-size: 13px;
+  text-align: center;
+  padding: 10px 16px;
+  background: rgba(255, 107, 107, 0.1);
+  border-radius: 6px;
+  width: 100%;
+}
+
+.activation-success {
+  font-size: 24px;
+  color: #4ade80;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.activation-help {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 8px;
 }
 
 /* ========================================

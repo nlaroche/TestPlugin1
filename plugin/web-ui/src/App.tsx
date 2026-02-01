@@ -183,11 +183,22 @@ function Meter({ value, label }: { value: number; label: string }) {
 // Activation Screen
 // ============================================================================
 
+type ActivationStatus = 'checking' | 'ready' | 'activating' | 'error' | 'success';
+
+interface ActivationResult {
+  success: boolean;
+  status: string;
+  message?: string;
+}
+
 function ActivationScreen({ onActivated }: { onActivated: () => void }) {
-  const [status, setStatus] = useState<'checking' | 'ready'>('checking');
+  const [status, setStatus] = useState<ActivationStatus>('checking');
+  const [code, setCode] = useState('');
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (!isInJuceWebView()) {
+      // Dev mode - skip activation
       setTimeout(() => onActivated(), 300);
       return;
     }
@@ -201,16 +212,102 @@ function ActivationScreen({ onActivated }: { onActivated: () => void }) {
       }
     };
 
-    const unsub = addEventListener('activationState', handleActivationState);
+    const handleActivationResult = (data: unknown) => {
+      const result = data as ActivationResult;
+      if (result.success) {
+        setStatus('success');
+        setTimeout(() => onActivated(), 1000);
+      } else {
+        setStatus('error');
+        setError(result.message || getErrorMessage(result.status));
+      }
+    };
+
+    const unsub1 = addEventListener('activationState', handleActivationState);
+    const unsub2 = addEventListener('activationResult', handleActivationResult);
     emitEvent('getActivationStatus', {});
-    return unsub;
+
+    return () => {
+      unsub1();
+      unsub2();
+    };
   }, [onActivated]);
+
+  const getErrorMessage = (status: string): string => {
+    switch (status) {
+      case 'Invalid': return 'Invalid activation code. Please check and try again.';
+      case 'Revoked': return 'This activation code has been revoked.';
+      case 'MaxReached': return 'Maximum activations reached for this code.';
+      case 'NetworkError': return 'Network error. Please check your connection.';
+      case 'ServerError': return 'Server error. Please try again later.';
+      default: return 'Activation failed. Please try again.';
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!code.trim()) {
+      setError('Please enter an activation code');
+      return;
+    }
+    setStatus('activating');
+    setError('');
+    emitEvent('activate', { code: code.trim() });
+  };
+
+  const formatCode = (value: string): string => {
+    // Remove non-alphanumeric except dashes
+    const cleaned = value.replace(/[^a-zA-Z0-9-]/g, '').toUpperCase();
+    return cleaned;
+  };
+
+  if (status === 'checking') {
+    return (
+      <div className="activation">
+        <div className="activation-logo">DELAYWAVE</div>
+        <div className="activation-status">Loading...</div>
+      </div>
+    );
+  }
+
+  if (status === 'success') {
+    return (
+      <div className="activation">
+        <div className="activation-logo">DELAYWAVE</div>
+        <div className="activation-success">Activated!</div>
+      </div>
+    );
+  }
 
   return (
     <div className="activation">
       <div className="activation-logo">DELAYWAVE</div>
-      <div className="activation-status">
-        {status === 'checking' ? 'Loading...' : 'Activation Required'}
+      <div className="activation-title">Enter Activation Code</div>
+
+      <form className="activation-form" onSubmit={handleSubmit}>
+        <input
+          type="text"
+          className="activation-input"
+          placeholder="XXXX-XXXX-XXXX-XXXX"
+          value={code}
+          onChange={(e) => setCode(formatCode(e.target.value))}
+          disabled={status === 'activating'}
+          autoFocus
+        />
+
+        {error && <div className="activation-error">{error}</div>}
+
+        <button
+          type="submit"
+          className="activation-button"
+          disabled={status === 'activating' || !code.trim()}
+        >
+          {status === 'activating' ? 'Activating...' : 'Activate'}
+        </button>
+      </form>
+
+      <div className="activation-help">
+        Enter the activation code from your purchase email
       </div>
     </div>
   );
