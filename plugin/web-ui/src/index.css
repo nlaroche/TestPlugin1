@@ -24,6 +24,9 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  /* Disable text selection - this is a plugin UI, not a document */
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 body {
@@ -32,6 +35,11 @@ body {
   color: var(--text);
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Disable right-click context menu */
+html {
+  -webkit-touch-callout: none;
 }
 
 /* ========================================

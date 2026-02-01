@@ -300,6 +300,13 @@ function App() {
     setIsActivated(true);
   }, []);
 
+  // Disable right-click context menu (this is a plugin UI, not a webpage)
+  useEffect(() => {
+    const handleContextMenu = (e: MouseEvent) => e.preventDefault();
+    document.addEventListener('contextmenu', handleContextMenu);
+    return () => document.removeEventListener('contextmenu', handleContextMenu);
+  }, []);
+
   if (!isActivated) {
     return <ActivationScreen onActivated={handleActivated} />;
   }
