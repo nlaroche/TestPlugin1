@@ -1,8 +1,160 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSliderParam, useToggleParam } from './hooks/useJuceParam';
 import { addEventListener, emitEvent, isInJuceWebView } from './lib/juce-bridge';
 
-// Activation screen component
+// ============================================================================
+// Rotary Knob Component
+// ============================================================================
+
+interface KnobProps {
+  value: number;
+  min: number;
+  max: number;
+  label: string;
+  unit?: string;
+  onChange: (value: number) => void;
+  onDragStart: () => void;
+  onDragEnd: () => void;
+}
+
+function Knob({ value, min, max, label, unit = '%', onChange, onDragStart, onDragEnd }: KnobProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+  const startY = useRef(0);
+  const startValue = useRef(0);
+
+  // Normalize value to 0-1 range
+  const normalizedValue = (value - min) / (max - min);
+
+  // Arc parameters
+  const size = 100;
+  const strokeWidth = 6;
+  const radius = (size - strokeWidth) / 2 - 8;
+  const center = size / 2;
+
+  // Arc angles: 135° to 405° (270° sweep)
+  const startAngle = 135;
+  const endAngle = 405;
+  const sweepAngle = endAngle - startAngle;
+
+  // Calculate arc paths
+  const polarToCartesian = (angle: number) => {
+    const rad = (angle - 90) * Math.PI / 180;
+    return {
+      x: center + radius * Math.cos(rad),
+      y: center + radius * Math.sin(rad)
+    };
+  };
+
+  const describeArc = (startA: number, endA: number) => {
+    const start = polarToCartesian(endA);
+    const end = polarToCartesian(startA);
+    const largeArc = endA - startA <= 180 ? 0 : 1;
+    return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArc} 0 ${end.x} ${end.y}`;
+  };
+
+  const trackPath = describeArc(startAngle, endAngle);
+  const valueAngle = startAngle + normalizedValue * sweepAngle;
+  const valuePath = normalizedValue > 0.01 ? describeArc(startAngle, valueAngle) : '';
+
+  // Indicator position
+  const indicatorAngle = valueAngle;
+  const indicatorRadius = radius - 12;
+  const indicatorPos = polarToCartesian(indicatorAngle);
+  const indicatorInner = {
+    x: center + indicatorRadius * Math.cos((indicatorAngle - 90) * Math.PI / 180),
+    y: center + indicatorRadius * Math.sin((indicatorAngle - 90) * Math.PI / 180)
+  };
+
+  // Display value
+  const displayValue = unit === '%'
+    ? Math.round(normalizedValue * 100)
+    : value.toFixed(1);
+
+  // Mouse/touch handling
+  const handleStart = useCallback((clientY: number) => {
+    isDragging.current = true;
+    startY.current = clientY;
+    startValue.current = value;
+    onDragStart();
+  }, [value, onDragStart]);
+
+  const handleMove = useCallback((clientY: number) => {
+    if (!isDragging.current) return;
+
+    const deltaY = startY.current - clientY;
+    const sensitivity = (max - min) / 200; // 200px for full range
+    const newValue = Math.max(min, Math.min(max, startValue.current + deltaY * sensitivity));
+    onChange(newValue);
+  }, [min, max, onChange]);
+
+  const handleEnd = useCallback(() => {
+    if (isDragging.current) {
+      isDragging.current = false;
+      onDragEnd();
+    }
+  }, [onDragEnd]);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => handleMove(e.clientY);
+    const handleMouseUp = () => handleEnd();
+    const handleTouchMove = (e: TouchEvent) => handleMove(e.touches[0].clientY);
+    const handleTouchEnd = () => handleEnd();
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('touchmove', handleTouchMove);
+    window.addEventListener('touchend', handleTouchEnd);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [handleMove, handleEnd]);
+
+  return (
+    <div className="control">
+      <div
+        ref={containerRef}
+        className="knob-container"
+        onMouseDown={(e) => handleStart(e.clientY)}
+        onTouchStart={(e) => handleStart(e.touches[0].clientY)}
+      >
+        <svg className="knob-svg" viewBox={`0 0 ${size} ${size}`}>
+          {/* Background track */}
+          <path className="knob-track" d={trackPath} />
+
+          {/* Value arc */}
+          {valuePath && <path className="knob-value" d={valuePath} />}
+
+          {/* Center circle */}
+          <circle className="knob-center" cx={center} cy={center} r={radius - 16} />
+
+          {/* Indicator line */}
+          <line
+            className="knob-indicator"
+            x1={indicatorInner.x}
+            y1={indicatorInner.y}
+            x2={indicatorPos.x}
+            y2={indicatorPos.y}
+            strokeWidth="3"
+            strokeLinecap="round"
+            stroke="currentColor"
+          />
+        </svg>
+        <span className="value">{displayValue}</span>
+      </div>
+      <label>{label}</label>
+    </div>
+  );
+}
+
+// ============================================================================
+// Activation Screen
+// ============================================================================
+
 function ActivationScreen({ onActivated }: { onActivated: () => void }) {
   const [status, setStatus] = useState<'checking' | 'ready'>('checking');
 
@@ -51,7 +203,10 @@ function ActivationScreen({ onActivated }: { onActivated: () => void }) {
   );
 }
 
-// Main plugin UI
+// ============================================================================
+// Main Plugin UI
+// ============================================================================
+
 function PluginUI() {
   const gain = useSliderParam('gain', 1.0);
   const mix = useSliderParam('mix', 1.0);
@@ -105,39 +260,25 @@ function PluginUI() {
         </div>
 
         <div className="controls">
-          <div className="control">
-            <label>GAIN</label>
-            <input
-              type="range"
-              min={0}
-              max={2}
-              step={0.01}
-              value={gain.value}
-              onMouseDown={gain.dragStart}
-              onMouseUp={gain.dragEnd}
-              onTouchStart={gain.dragStart}
-              onTouchEnd={gain.dragEnd}
-              onChange={(e) => gain.setValue(parseFloat(e.target.value))}
-            />
-            <span className="value">{Math.round(gain.value * 100)}%</span>
-          </div>
+          <Knob
+            value={gain.value}
+            min={0}
+            max={2}
+            label="GAIN"
+            onChange={gain.setValue}
+            onDragStart={gain.dragStart}
+            onDragEnd={gain.dragEnd}
+          />
 
-          <div className="control">
-            <label>MIX</label>
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.01}
-              value={mix.value}
-              onMouseDown={mix.dragStart}
-              onMouseUp={mix.dragEnd}
-              onTouchStart={mix.dragStart}
-              onTouchEnd={mix.dragEnd}
-              onChange={(e) => mix.setValue(parseFloat(e.target.value))}
-            />
-            <span className="value">{Math.round(mix.value * 100)}%</span>
-          </div>
+          <Knob
+            value={mix.value}
+            min={0}
+            max={1}
+            label="MIX"
+            onChange={mix.setValue}
+            onDragStart={mix.dragStart}
+            onDragEnd={mix.dragEnd}
+          />
         </div>
       </main>
 
@@ -148,7 +289,10 @@ function PluginUI() {
   );
 }
 
-// Main App with activation flow
+// ============================================================================
+// App with Activation Flow
+// ============================================================================
+
 function App() {
   const [isActivated, setIsActivated] = useState(false);
 

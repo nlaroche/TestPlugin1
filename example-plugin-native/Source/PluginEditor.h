@@ -8,12 +8,18 @@
  * Native JUCE UI Example
  *
  * This editor demonstrates a traditional JUCE plugin UI using standard components:
- * - Sliders with custom LookAndFeel
- * - Labels
- * - Toggle buttons
- * - Level meters
+ * - Rotary sliders with custom LookAndFeel (arc-style like Drive/HAZE)
+ * - Labels with tracking/letter-spacing
+ * - Toggle buttons with custom styling
+ * - Level meters with glow effects
  *
  * No WebView, no React - just JUCE Components.
+ *
+ * Design inspired by BeatConnect plugins (Drive, HAZE, DRIFT):
+ * - Dark background (#0f0f12)
+ * - Warm orange accent (#ff6b35)
+ * - Arc-based rotary controls
+ * - Subtle glow effects on active elements
  */
 class ExamplePluginNativeEditor : public juce::AudioProcessorEditor,
                                    private juce::Timer
@@ -30,14 +36,19 @@ private:
 
     ExamplePluginNativeProcessor& processorRef;
 
-    // Custom look and feel for a modern appearance
+    // Custom look and feel for modern plugin appearance
     class ModernLookAndFeel : public juce::LookAndFeel_V4
     {
     public:
         ModernLookAndFeel();
+
         void drawRotarySlider(juce::Graphics&, int x, int y, int width, int height,
                               float sliderPosProportional, float rotaryStartAngle,
                               float rotaryEndAngle, juce::Slider&) override;
+
+        void drawToggleButton(juce::Graphics&, juce::ToggleButton&,
+                              bool shouldDrawButtonAsHighlighted,
+                              bool shouldDrawButtonAsDown) override;
     };
 
     ModernLookAndFeel modernLookAndFeel;
@@ -51,7 +62,7 @@ private:
     juce::Label mixLabel;
     juce::Label titleLabel;
 
-    // Level meters (simple rectangles)
+    // Level meters (smoothed display values)
     float displayInputLevel = 0.0f;
     float displayOutputLevel = 0.0f;
 
