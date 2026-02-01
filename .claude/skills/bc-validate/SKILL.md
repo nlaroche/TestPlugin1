@@ -130,79 +130,95 @@ Verify `.gitignore` includes:
 ## Output Format
 
 ```
-============================================================
- BEATCONNECT PLUGIN VALIDATION REPORT
-============================================================
+╔══════════════════════════════════════════════════════════════╗
+║  🎛️  BEATCONNECT PLUGIN VALIDATION                           ║
+╚══════════════════════════════════════════════════════════════╝
 
-PLUGIN INFORMATION
-  Name:              DelayWave
-  Version:           1.0.0
-  Company:           BeatConnect
-  Manufacturer Code: Beat (4 chars ✓)
-  Plugin Code:       Dwav (4 chars ✓)
-  Category:          Effect (IS_SYNTH=FALSE)
-  Formats:           VST3, Standalone
-  Frontend:          Web UI
+┌──────────────────────────────────────────────────────────────┐
+│  📦 PLUGIN INFO                                              │
+├──────────────────────────────────────────────────────────────┤
+│  Name              DelayWave                                 │
+│  Version           1.0.0                                     │
+│  Company           BeatConnect                               │
+│  Manufacturer      Beat (4 chars ✓)                          │
+│  Plugin Code       Dwav (4 chars ✓)                          │
+│  Category          Effect                                    │
+│  Formats           VST3, Standalone                          │
+│  Frontend          Web UI (React)                            │
+└──────────────────────────────────────────────────────────────┘
 
-PRE-FLIGHT CHECKS                                      [PASS]
-  ✓ No pre-compiled binaries in git
-  ✓ No CMAKE_SOURCE_DIR bugs (using CMAKE_CURRENT_SOURCE_DIR)
-  ✓ Root CMakeLists.txt has LANGUAGES C CXX
+🔒 PRE-FLIGHT CHECKS ─────────────────────────────────── ✅ PASS
+   ✅ No pre-compiled binaries in git
+   ✅ No CMAKE_SOURCE_DIR bugs
+   ✅ Root CMakeLists.txt has LANGUAGES C CXX
 
-PROJECT STRUCTURE                                      [PASS]
-  ✓ CMakeLists.txt (root)
-  ✓ plugin/CMakeLists.txt
-  ✓ plugin/Source/ directory
-  ✓ All required source files present
-  ✓ beatconnect-sdk/ found
+📁 PROJECT STRUCTURE ─────────────────────────────────── ✅ PASS
+   ✅ CMakeLists.txt (root wrapper)
+   ✅ plugin/CMakeLists.txt
+   ✅ plugin/Source/ directory
+   ✅ All required source files present
+   ✅ beatconnect-sdk/ found
 
-WEB UI BUILD                                           [PASS]
-  ✓ npm install succeeded
-  ✓ npm run build succeeded
-  ✓ Resources/WebUI/index.html generated
+🌐 WEB UI BUILD ──────────────────────────────────────── ✅ PASS
+   ✅ npm install succeeded
+   ✅ npm run build succeeded
+   ✅ Resources/WebUI/index.html generated
 
-CMAKE CONFIGURE (from repo root)                       [PASS]
-  ✓ cmake -B build-validate -S . succeeded
-  ✓ [BeatConnect] messages present
-  ✓ No errors or warnings
+⚙️  CMAKE CONFIGURE ──────────────────────────────────── ✅ PASS
+   ✅ cmake -B build-validate -S . succeeded
+   ✅ [BeatConnect] detection messages present
+   ✅ No errors or warnings
 
-PARAMETER SYNC                                         [PASS]
-  C++ (7): time, feedback, mix, modRate, modDepth, tone, bypass
-  TS  (7): time, feedback, mix, modRate, modDepth, tone, bypass
-  ✓ All match
+🔗 PARAMETER SYNC ────────────────────────────────────── ✅ PASS
+   C++ │ time, feedback, mix, modRate, modDepth, tone, bypass
+   TS  │ time, feedback, mix, modRate, modDepth, tone, bypass
+   ✅ All 7 parameters match
 
-============================================================
- RESULT: ALL CHECKS PASSED
- Your plugin is ready for BeatConnect build!
-============================================================
+╔══════════════════════════════════════════════════════════════╗
+║  🎉 ALL CHECKS PASSED                                        ║
+║  Your plugin is ready for BeatConnect build!                 ║
+╚══════════════════════════════════════════════════════════════╝
 ```
 
 ### Failure Example
 
 ```
-============================================================
- BEATCONNECT PLUGIN VALIDATION REPORT
-============================================================
+╔══════════════════════════════════════════════════════════════╗
+║  🎛️  BEATCONNECT PLUGIN VALIDATION                           ║
+╚══════════════════════════════════════════════════════════════╝
 
-PRE-FLIGHT CHECKS                                      [FAIL]
-  ✗ CRITICAL: Root CMakeLists.txt missing!
-    CI runs 'cmake -S . -B build' from repo root.
-    Create CMakeLists.txt at repo root with:
-      cmake_minimum_required(VERSION 3.22)
-      project(Wrapper LANGUAGES C CXX)
-      add_subdirectory(plugin)
+┌──────────────────────────────────────────────────────────────┐
+│  📦 PLUGIN INFO                                              │
+├──────────────────────────────────────────────────────────────┤
+│  Name              DelayWave                                 │
+│  Version           1.0.0                                     │
+│  ...                                                         │
+└──────────────────────────────────────────────────────────────┘
 
-CMAKE CONFIGURE (from repo root)                       [FAIL]
-  ✗ cmake failed with:
-    CMake Error: The source directory does not contain CMakeLists.txt
+🔒 PRE-FLIGHT CHECKS ─────────────────────────────────── ❌ FAIL
+   ❌ CRITICAL: Root CMakeLists.txt missing!
+      └─ CI runs 'cmake -S . -B build' from repo root
+      └─ Create CMakeLists.txt at repo root (see fix below)
 
-============================================================
- RESULT: 2 CRITICAL ISSUES - BUILD WILL FAIL
-============================================================
+⚙️  CMAKE CONFIGURE ──────────────────────────────────── ❌ FAIL
+   ❌ cmake failed with error:
+      └─ CMake Error: The source directory does not contain CMakeLists.txt
 
-REQUIRED FIXES:
-1. Create root CMakeLists.txt (see above)
+╔══════════════════════════════════════════════════════════════╗
+║  ⛔ 2 CRITICAL ISSUES FOUND                                  ║
+║  Build will fail! Fix the issues below.                      ║
+╚══════════════════════════════════════════════════════════════╝
+
+🔧 REQUIRED FIXES
+───────────────────────────────────────────────────────────────
+1. Create root CMakeLists.txt:
+
+   cmake_minimum_required(VERSION 3.22)
+   project(Wrapper LANGUAGES C CXX)
+   add_subdirectory(plugin)
+
 2. Re-run /bc-validate after fixing
+───────────────────────────────────────────────────────────────
 ```
 
 ---
