@@ -406,6 +406,16 @@ Fix: The PluginEditor.cpp must check multiple paths:
       resourcesDir = executableDir.getParentDirectory().getChildFile("Resources").getChildFile("WebUI");
 ```
 
+**npm ci fails with "package-lock.json missing"**:
+```
+CI uses 'npm ci' for faster, reproducible builds, but it requires package-lock.json.
+
+Fix:
+1. Remove 'package-lock.json' from .gitignore (if present)
+2. Run: cd plugin/web-ui && npm install
+3. Commit the package-lock.json file
+```
+
 **Validation failed**:
 ```
 The validation found some issues. Let me fix them before we continue...

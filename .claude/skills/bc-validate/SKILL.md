@@ -81,6 +81,19 @@ Display in report header.
 
 If `plugin/web-ui/` exists:
 
+**First, check package-lock.json exists and is committed:**
+```bash
+git ls-files plugin/web-ui/package-lock.json
+```
+
+If NOT found, **FAIL**:
+```
+CRITICAL: plugin/web-ui/package-lock.json is missing or gitignored!
+CI uses 'npm ci' which requires package-lock.json for reproducible builds.
+Fix: Remove 'package-lock.json' from .gitignore, run 'npm install', then commit the lock file.
+```
+
+**Then build:**
 ```bash
 cd plugin/web-ui
 npm ci  # or npm install
