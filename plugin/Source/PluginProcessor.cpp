@@ -207,6 +207,12 @@ void DelayWaveProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Mi
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear(i, 0, numSamples);
 
+    // Measure input levels before processing
+    float inL = buffer.getMagnitude(0, 0, numSamples);
+    float inR = totalNumInputChannels > 1 ? buffer.getMagnitude(1, 0, numSamples) : inL;
+    inputLevelL.store(inL);
+    inputLevelR.store(inR);
+
     // Get parameter values
     bool bypassValue = apvts.getRawParameterValue(ParamIDs::bypass)->load() > 0.5f;
 
@@ -219,6 +225,10 @@ void DelayWaveProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Mi
         smoothedModRate.setCurrentAndTargetValue(apvts.getRawParameterValue(ParamIDs::modRate)->load());
         smoothedModDepth.setCurrentAndTargetValue(apvts.getRawParameterValue(ParamIDs::modDepth)->load());
         smoothedTone.setCurrentAndTargetValue(apvts.getRawParameterValue(ParamIDs::tone)->load());
+
+        // Measure output levels even when bypassed
+        outputLevelL.store(inL);
+        outputLevelR.store(inR);
         return;
     }
 
@@ -292,6 +302,12 @@ void DelayWaveProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Mi
         if (lfoPhase >= twoPi)
             lfoPhase -= twoPi;
     }
+
+    // Measure output levels after processing
+    float outL = buffer.getMagnitude(0, 0, numSamples);
+    float outR = totalNumInputChannels > 1 ? buffer.getMagnitude(1, 0, numSamples) : outL;
+    outputLevelL.store(outL);
+    outputLevelR.store(outR);
 }
 
 //==============================================================================

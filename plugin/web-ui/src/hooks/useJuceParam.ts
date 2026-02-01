@@ -3,78 +3,67 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import {
-  getSliderState,
-  getToggleState,
-  getComboBoxState,
-  addCustomEventListener,
-  isInJuceWebView,
-} from '../lib/juce-bridge';
+import { getSliderState, getToggleState, isInJuceWebView, SliderState, ToggleState } from '../lib/juce-bridge';
 
 // ==============================================================================
 // useSliderParam - Continuous Float Parameters
 // ==============================================================================
 
-interface SliderParamOptions {
-  defaultValue?: number;
-}
-
 interface SliderParamReturn {
   value: number;
   setValue: (value: number) => void;
-  onDragStart: () => void;
-  onDragEnd: () => void;
+  dragStart: () => void;
+  dragEnd: () => void;
   isConnected: boolean;
 }
 
-export function useSliderParam(
-  paramId: string,
-  options: SliderParamOptions = {}
-): SliderParamReturn {
-  const { defaultValue = 0.5 } = options;
+export function useSliderParam(paramId: string, defaultValue: number = 0.5): SliderParamReturn {
   const [value, setValueState] = useState(defaultValue);
-  const stateRef = useRef(getSliderState(paramId));
+  const stateRef = useRef<SliderState | null>(null);
   const isConnected = isInJuceWebView();
 
+  // Re-fetch state when JUCE becomes available
+  if (isConnected && !stateRef.current) {
+    stateRef.current = getSliderState(paramId);
+  }
+
   useEffect(() => {
-    const state = stateRef.current;
+    // Get state - this will be real if connected, mock if not
+    const state = getSliderState(paramId);
+    stateRef.current = state;
 
     if (isConnected) {
-      setValueState(state.getNormalisedValue());
+      setValueState(state.getScaledValue());
     }
 
     const listenerId = state.valueChangedEvent.addListener(() => {
-      setValueState(state.getNormalisedValue());
+      setValueState(state.getScaledValue());
     });
 
     return () => {
       state.valueChangedEvent.removeListener(listenerId);
     };
-  }, [isConnected]);
+  }, [paramId, isConnected]);
 
   const setValue = useCallback((newValue: number) => {
     setValueState(newValue);
-    stateRef.current.setNormalisedValue(newValue);
+    stateRef.current?.setScaledValue(newValue);
   }, []);
 
-  const onDragStart = useCallback(() => {
-    stateRef.current.sliderDragStarted();
+  const dragStart = useCallback(() => {
+    stateRef.current?.sliderDragStarted();
   }, []);
 
-  const onDragEnd = useCallback(() => {
-    stateRef.current.sliderDragEnded();
+  const dragEnd = useCallback(() => {
+    stateRef.current?.sliderDragEnded();
   }, []);
 
-  return { value, setValue, onDragStart, onDragEnd, isConnected };
+  return { value, setValue, dragStart, dragEnd, isConnected };
 }
 
 // ==============================================================================
 // useToggleParam - Boolean Parameters
 // ==============================================================================
-
-interface ToggleParamOptions {
-  defaultValue?: boolean;
-}
 
 interface ToggleParamReturn {
   value: boolean;
@@ -83,17 +72,20 @@ interface ToggleParamReturn {
   isConnected: boolean;
 }
 
-export function useToggleParam(
-  paramId: string,
-  options: ToggleParamOptions = {}
-): ToggleParamReturn {
-  const { defaultValue = false } = options;
+export function useToggleParam(paramId: string, defaultValue: boolean = false): ToggleParamReturn {
   const [value, setValueState] = useState(defaultValue);
-  const stateRef = useRef(getToggleState(paramId));
+  const stateRef = useRef<ToggleState | null>(null);
   const isConnected = isInJuceWebView();
 
+  // Re-fetch state when JUCE becomes available
+  if (isConnected && !stateRef.current) {
+    stateRef.current = getToggleState(paramId);
+  }
+
   useEffect(() => {
-    const state = stateRef.current;
+    // Get state - this will be real if connected, mock if not
+    const state = getToggleState(paramId);
+    stateRef.current = state;
 
     if (isConnected) {
       setValueState(state.getValue());
@@ -106,90 +98,18 @@ export function useToggleParam(
     return () => {
       state.valueChangedEvent.removeListener(listenerId);
     };
-  }, [isConnected]);
+  }, [paramId, isConnected]);
 
   const setValue = useCallback((newValue: boolean) => {
     setValueState(newValue);
-    stateRef.current.setValue(newValue);
+    stateRef.current?.setValue(newValue);
   }, []);
 
   const toggle = useCallback(() => {
-    const newValue = !stateRef.current.getValue();
+    // Use local state for toggle since it's most up-to-date
+    const newValue = !value;
     setValue(newValue);
-  }, [setValue]);
+  }, [value, setValue]);
 
   return { value, setValue, toggle, isConnected };
-}
-
-// ==============================================================================
-// useComboParam - Choice Parameters
-// ==============================================================================
-
-interface ComboParamOptions {
-  defaultIndex?: number;
-}
-
-interface ComboParamReturn {
-  index: number;
-  setIndex: (index: number) => void;
-  choices: string[];
-  isConnected: boolean;
-}
-
-export function useComboParam(
-  paramId: string,
-  options: ComboParamOptions = {}
-): ComboParamReturn {
-  const { defaultIndex = 0 } = options;
-  const [index, setIndexState] = useState(defaultIndex);
-  const [choices, setChoices] = useState<string[]>([]);
-  const stateRef = useRef(getComboBoxState(paramId));
-  const isConnected = isInJuceWebView();
-
-  useEffect(() => {
-    const state = stateRef.current;
-
-    if (isConnected) {
-      setIndexState(state.getChoiceIndex());
-      setChoices(state.getChoices());
-    }
-
-    const valueListener = state.valueChangedEvent.addListener(() => {
-      setIndexState(state.getChoiceIndex());
-    });
-
-    const propsListener = state.propertiesChangedEvent.addListener(() => {
-      setChoices(state.getChoices());
-    });
-
-    return () => {
-      state.valueChangedEvent.removeListener(valueListener);
-      state.propertiesChangedEvent.removeListener(propsListener);
-    };
-  }, [isConnected]);
-
-  const setIndex = useCallback((newIndex: number) => {
-    setIndexState(newIndex);
-    stateRef.current.setChoiceIndex(newIndex);
-  }, []);
-
-  return { index, setIndex, choices, isConnected };
-}
-
-// ==============================================================================
-// useVisualizerData - Custom Events from C++
-// ==============================================================================
-
-export function useVisualizerData<T>(eventId: string, initialValue: T): T {
-  const [data, setData] = useState<T>(initialValue);
-
-  useEffect(() => {
-    const unsubscribe = addCustomEventListener(eventId, (payload) => {
-      setData(payload as T);
-    });
-
-    return unsubscribe;
-  }, [eventId]);
-
-  return data;
 }

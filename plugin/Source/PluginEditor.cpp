@@ -103,9 +103,13 @@ void DelayWaveEditor::setupWebView()
         .withOptionsFrom(*modDepthRelay)
         .withOptionsFrom(*toneRelay)
         .withOptionsFrom(*bypassRelay)
+        // Activation status event listener
+        .withEventListener("getActivationStatus", [this](const juce::var&) {
+            sendActivationState();
+        })
         .withWinWebView2Options(
             juce::WebBrowserComponent::Options::WinWebView2()
-                .withBackgroundColour(juce::Colour(0xff0a0a12))
+                .withBackgroundColour(juce::Colour(0xff0f0f12))
                 .withStatusBarDisabled()
                 .withUserDataFolder(
                     juce::File::getSpecialLocation(juce::File::tempDirectory)
@@ -156,60 +160,16 @@ void DelayWaveEditor::sendVisualizerData()
         return;
 
     juce::DynamicObject::Ptr data = new juce::DynamicObject();
-    // Add any visualizer data here if needed
+    data->setProperty("inputLevel", processorRef.getInputLevel());
+    data->setProperty("outputLevel", processorRef.getOutputLevel());
     webView->emitEventIfBrowserIsVisible("visualizerData", juce::var(data.get()));
 }
 
 //==============================================================================
 void DelayWaveEditor::setupActivationEvents()
 {
-#if BEATCONNECT_ACTIVATION_ENABLED
-    if (!webView)
-        return;
-
-    webView->addListener("activatePlugin", [this](const juce::var& data) {
-        auto code = data.getProperty("code", "").toString().toStdString();
-
-        beatconnect::Activation::getInstance().activateAsync(code,
-            [safeThis = juce::Component::SafePointer(this)](beatconnect::ActivationStatus status) {
-                if (safeThis == nullptr)
-                    return;
-
-                juce::MessageManager::callAsync([safeThis, status]() {
-                    if (safeThis == nullptr)
-                        return;
-
-                    juce::DynamicObject::Ptr result = new juce::DynamicObject();
-                    result->setProperty("success", status == beatconnect::ActivationStatus::Valid ||
-                                                   status == beatconnect::ActivationStatus::AlreadyActive);
-
-                    juce::String statusStr;
-                    switch (status) {
-                        case beatconnect::ActivationStatus::Valid:         statusStr = "valid"; break;
-                        case beatconnect::ActivationStatus::Invalid:       statusStr = "invalid"; break;
-                        case beatconnect::ActivationStatus::Revoked:       statusStr = "revoked"; break;
-                        case beatconnect::ActivationStatus::MaxReached:    statusStr = "max_reached"; break;
-                        case beatconnect::ActivationStatus::NetworkError:  statusStr = "network_error"; break;
-                        case beatconnect::ActivationStatus::ServerError:   statusStr = "server_error"; break;
-                        case beatconnect::ActivationStatus::NotConfigured: statusStr = "not_configured"; break;
-                        case beatconnect::ActivationStatus::AlreadyActive: statusStr = "already_active"; break;
-                        case beatconnect::ActivationStatus::NotActivated:  statusStr = "not_activated"; break;
-                    }
-                    result->setProperty("status", statusStr);
-
-                    safeThis->webView->emitEventIfBrowserIsVisible("activationResult", juce::var(result.get()));
-                });
-            });
-    });
-
-    webView->addListener("deactivatePlugin", [this](const juce::var&) {
-        auto status = beatconnect::Activation::getInstance().deactivate();
-
-        juce::DynamicObject::Ptr result = new juce::DynamicObject();
-        result->setProperty("success", status == beatconnect::ActivationStatus::Valid);
-        webView->emitEventIfBrowserIsVisible("deactivationResult", juce::var(result.get()));
-    });
-#endif
+    // Event listeners are now registered in withEventListener() in setupWebView()
+    // This function is kept for any additional runtime setup if needed
 }
 
 void DelayWaveEditor::sendActivationState()
@@ -221,8 +181,8 @@ void DelayWaveEditor::sendActivationState()
     auto& activation = beatconnect::Activation::getInstance();
 
     juce::DynamicObject::Ptr data = new juce::DynamicObject();
+    data->setProperty("isConfigured", processorRef.hasActivationEnabled());
     data->setProperty("isActivated", activation.isActivated());
-    data->setProperty("requiresActivation", processorRef.hasActivationEnabled());
 
     if (auto info = activation.getActivationInfo())
     {
@@ -233,8 +193,8 @@ void DelayWaveEditor::sendActivationState()
     webView->emitEventIfBrowserIsVisible("activationState", juce::var(data.get()));
 #else
     juce::DynamicObject::Ptr data = new juce::DynamicObject();
+    data->setProperty("isConfigured", false);  // No activation configured
     data->setProperty("isActivated", true);
-    data->setProperty("requiresActivation", false);
     webView->emitEventIfBrowserIsVisible("activationState", juce::var(data.get()));
 #endif
 }
@@ -242,7 +202,7 @@ void DelayWaveEditor::sendActivationState()
 //==============================================================================
 void DelayWaveEditor::paint(juce::Graphics& g)
 {
-    g.fillAll(juce::Colour(0xff0a0a12));
+    g.fillAll(juce::Colour(0xff0f0f12));
 }
 
 void DelayWaveEditor::resized()

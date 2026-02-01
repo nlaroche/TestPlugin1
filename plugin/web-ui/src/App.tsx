@@ -1,192 +1,376 @@
 /**
  * DelayWave - Web UI
- * A wavey modulated delay effect
+ * Modern, premium design with proper arc knobs
  */
 
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSliderParam, useToggleParam } from './hooks/useJuceParam';
-import { isInJuceWebView } from './lib/juce-bridge';
+import { addEventListener, emitEvent, isInJuceWebView } from './lib/juce-bridge';
 
-// Parameter IDs (must match C++ ParameterIDs.h)
-const ParamIDs = {
-  time: 'time',
-  feedback: 'feedback',
-  mix: 'mix',
-  modRate: 'modRate',
-  modDepth: 'modDepth',
-  tone: 'tone',
-  bypass: 'bypass',
-} as const;
+// ============================================================================
+// Rotary Knob Component - Fixed Arc Direction
+// ============================================================================
 
-// Knob component for cleaner UI
 interface KnobProps {
-  id: string;
-  label: string;
   value: number;
   min: number;
   max: number;
-  step?: number;
+  label: string;
   unit?: string;
-  formatValue?: (v: number) => string;
+  decimals?: number;
+  onChange: (value: number) => void;
   onDragStart: () => void;
   onDragEnd: () => void;
-  onChange: (v: number) => void;
 }
 
-function Knob({ id, label, value, min, max, step = 0.01, unit = '', formatValue, onDragStart, onDragEnd, onChange }: KnobProps) {
-  const displayValue = formatValue ? formatValue(value) : `${Math.round(value)}${unit}`;
+function Knob({ value, min, max, label, unit = '%', decimals = 0, onChange, onDragStart, onDragEnd }: KnobProps) {
+  const isDragging = useRef(false);
+  const startY = useRef(0);
+  const startValue = useRef(0);
+
+  // Normalize value to 0-1 range
+  const normalizedValue = Math.max(0, Math.min(1, (value - min) / (max - min)));
+
+  // Arc parameters
+  const size = 80;
+  const strokeWidth = 4;
+  const radius = (size / 2) - strokeWidth - 4;
+  const center = size / 2;
+
+  // SVG angles: 0°=right, 90°=down, 180°=left, 270°=up
+  // Knob arc: from 135° (bottom-left) clockwise 270° to 45° (bottom-right)
+  const startAngle = 135;  // bottom-left
+  const totalSweep = 270;  // degrees of rotation
+
+  // Convert angle to SVG point (standard SVG coordinates, no rotation)
+  const angleToPoint = (angleDeg: number) => {
+    const rad = angleDeg * Math.PI / 180;
+    return {
+      x: center + radius * Math.cos(rad),
+      y: center + radius * Math.sin(rad)
+    };
+  };
+
+  // Current angle based on value (increases clockwise from 135°)
+  const currentAngle = startAngle + normalizedValue * totalSweep;
+
+  // Create arc path - always clockwise (sweep-flag=1)
+  const createArc = (fromAngle: number, toAngle: number) => {
+    const fromPoint = angleToPoint(fromAngle);
+    const toPoint = angleToPoint(toAngle % 360);
+
+    // Calculate sweep distance
+    let sweep = toAngle - fromAngle;
+    if (sweep < 0) sweep += 360;
+
+    const largeArc = sweep > 180 ? 1 : 0;
+    return `M ${fromPoint.x} ${fromPoint.y} A ${radius} ${radius} 0 ${largeArc} 1 ${toPoint.x} ${toPoint.y}`;
+  };
+
+  // Track: full arc from 135° to 405° (=45°)
+  const trackPath = createArc(startAngle, startAngle + totalSweep);
+
+  // Value: partial arc from 135° to current position
+  const valuePath = normalizedValue > 0.01 ? createArc(startAngle, currentAngle) : '';
+
+  // Indicator dot position
+  const indicatorPos = angleToPoint(currentAngle % 360);
+
+  // Format display value
+  const formatValue = () => {
+    if (unit === '%') {
+      return Math.round(normalizedValue * 100);
+    }
+    if (decimals === 0) {
+      return Math.round(value);
+    }
+    return value.toFixed(decimals);
+  };
+
+  // Mouse/touch handling
+  const handleStart = useCallback((clientY: number) => {
+    isDragging.current = true;
+    startY.current = clientY;
+    startValue.current = value;
+    onDragStart();
+    document.body.style.cursor = 'grabbing';
+  }, [value, onDragStart]);
+
+  const handleMove = useCallback((clientY: number) => {
+    if (!isDragging.current) return;
+    const deltaY = startY.current - clientY;
+    const range = max - min;
+    const sensitivity = range / 150;
+    const newValue = Math.max(min, Math.min(max, startValue.current + deltaY * sensitivity));
+    onChange(newValue);
+  }, [min, max, onChange]);
+
+  const handleEnd = useCallback(() => {
+    if (isDragging.current) {
+      isDragging.current = false;
+      onDragEnd();
+      document.body.style.cursor = '';
+    }
+  }, [onDragEnd]);
+
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => handleMove(e.clientY);
+    const onMouseUp = () => handleEnd();
+    const onTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      handleMove(e.touches[0].clientY);
+    };
+    const onTouchEnd = () => handleEnd();
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    window.addEventListener('touchmove', onTouchMove, { passive: false });
+    window.addEventListener('touchend', onTouchEnd);
+
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onTouchEnd);
+    };
+  }, [handleMove, handleEnd]);
 
   return (
-    <div className="knob-group">
-      <label htmlFor={id}>{label}</label>
-      <input
-        id={id}
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onMouseDown={onDragStart}
-        onMouseUp={onDragEnd}
-        onTouchStart={onDragStart}
-        onTouchEnd={onDragEnd}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
-        className="knob"
-      />
-      <span className="value">{displayValue}</span>
+    <div className="knob">
+      <div
+        className="knob-body"
+        onMouseDown={(e) => handleStart(e.clientY)}
+        onTouchStart={(e) => handleStart(e.touches[0].clientY)}
+      >
+        <svg viewBox={`0 0 ${size} ${size}`} className="knob-svg">
+          {/* Track */}
+          <path d={trackPath} className="knob-track" />
+          {/* Value arc */}
+          {valuePath && <path d={valuePath} className="knob-arc" />}
+          {/* Center */}
+          <circle cx={center} cy={center} r={radius - 12} className="knob-center" />
+          {/* Indicator dot */}
+          <circle cx={indicatorPos.x} cy={indicatorPos.y} r="4" className="knob-dot" />
+        </svg>
+        <div className="knob-value">
+          <span className="knob-number">{formatValue()}</span>
+          <span className="knob-unit">{unit}</span>
+        </div>
+      </div>
+      <div className="knob-label">{label}</div>
     </div>
   );
 }
 
-function App() {
-  // Core delay parameters
-  const time = useSliderParam(ParamIDs.time, { defaultValue: 300 });
-  const feedback = useSliderParam(ParamIDs.feedback, { defaultValue: 0.4 });
-  const mix = useSliderParam(ParamIDs.mix, { defaultValue: 0.5 });
+// ============================================================================
+// Level Meter Component
+// ============================================================================
 
-  // Modulation parameters (the wavey stuff!)
-  const modRate = useSliderParam(ParamIDs.modRate, { defaultValue: 0.5 });
-  const modDepth = useSliderParam(ParamIDs.modDepth, { defaultValue: 0.3 });
-
-  // Tone control
-  const tone = useSliderParam(ParamIDs.tone, { defaultValue: 0.7 });
-
-  // Bypass
-  const bypass = useToggleParam(ParamIDs.bypass, { defaultValue: false });
-
-  const isConnected = isInJuceWebView();
+function Meter({ value, label }: { value: number; label: string }) {
+  const height = Math.min(100, Math.max(0, value * 100));
 
   return (
-    <div className="plugin-container">
+    <div className="meter">
+      <div className="meter-track">
+        <div className="meter-fill" style={{ height: `${height}%` }} />
+      </div>
+      <div className="meter-label">{label}</div>
+    </div>
+  );
+}
+
+// ============================================================================
+// Activation Screen
+// ============================================================================
+
+function ActivationScreen({ onActivated }: { onActivated: () => void }) {
+  const [status, setStatus] = useState<'checking' | 'ready'>('checking');
+
+  useEffect(() => {
+    if (!isInJuceWebView()) {
+      setTimeout(() => onActivated(), 300);
+      return;
+    }
+
+    const handleActivationState = (data: unknown) => {
+      const d = data as { isConfigured?: boolean; isActivated?: boolean };
+      if (!d.isConfigured || d.isActivated) {
+        onActivated();
+      } else {
+        setStatus('ready');
+      }
+    };
+
+    const unsub = addEventListener('activationState', handleActivationState);
+    emitEvent('getActivationStatus', {});
+    return unsub;
+  }, [onActivated]);
+
+  return (
+    <div className="activation">
+      <div className="activation-logo">DELAYWAVE</div>
+      <div className="activation-status">
+        {status === 'checking' ? 'Loading...' : 'Activation Required'}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// Main Plugin UI
+// ============================================================================
+
+function PluginUI() {
+  // Core delay parameters
+  const time = useSliderParam('time', 300);
+  const feedback = useSliderParam('feedback', 0.4);
+  const mix = useSliderParam('mix', 0.5);
+
+  // Modulation
+  const modRate = useSliderParam('modRate', 0.5);
+  const modDepth = useSliderParam('modDepth', 0.3);
+
+  // Filter
+  const tone = useSliderParam('tone', 0.7);
+
+  // Bypass
+  const bypass = useToggleParam('bypass', false);
+
+  // Levels
+  const [levels, setLevels] = useState({ input: 0, output: 0 });
+
+  useEffect(() => {
+    const unsub = addEventListener('visualizerData', (data: unknown) => {
+      const d = data as { inputLevel?: number; outputLevel?: number };
+      setLevels({
+        input: d.inputLevel ?? 0,
+        output: d.outputLevel ?? 0
+      });
+    });
+    return unsub;
+  }, []);
+
+  return (
+    <div className={`plugin ${bypass.value ? 'bypassed' : ''}`}>
       {/* Header */}
-      <header className="plugin-header">
-        <div className="logo">
-          <h1>DelayWave</h1>
-          <span className="tagline">wavey delays</span>
-        </div>
-        <div className="header-controls">
-          <span className={`connection-indicator ${isConnected ? 'connected' : ''}`}>
-            {isConnected ? '●' : 'DEV'}
-          </span>
-          <button
-            className={`bypass-button ${bypass.value ? 'bypassed' : ''}`}
-            onClick={bypass.toggle}
-          >
-            {bypass.value ? 'BYPASSED' : 'ACTIVE'}
-          </button>
-        </div>
+      <header className="header">
+        <div className="logo">DELAYWAVE</div>
+        <button
+          className={`bypass-btn ${bypass.value ? 'active' : ''}`}
+          onClick={bypass.toggle}
+        >
+          {bypass.value ? 'BYPASSED' : 'ACTIVE'}
+        </button>
       </header>
 
-      {/* Main Controls */}
-      <main className="plugin-controls">
-        {/* Delay Section */}
-        <section className="control-section delay-section">
-          <h2>Delay</h2>
-          <div className="knob-row">
+      {/* Main controls */}
+      <main className="main">
+        {/* Meters */}
+        <div className="meters">
+          <Meter value={levels.input} label="IN" />
+          <Meter value={levels.output} label="OUT" />
+        </div>
+
+        {/* Primary Controls */}
+        <div className="control-section">
+          <div className="section-title">DELAY</div>
+          <div className="control-row">
             <Knob
-              id="time"
-              label="Time"
               value={time.value}
               min={10}
               max={1000}
-              step={1}
+              label="TIME"
               unit="ms"
-              onDragStart={time.onDragStart}
-              onDragEnd={time.onDragEnd}
               onChange={time.setValue}
+              onDragStart={time.dragStart}
+              onDragEnd={time.dragEnd}
             />
             <Knob
-              id="feedback"
-              label="Feedback"
               value={feedback.value}
               min={0}
               max={0.95}
-              formatValue={(v) => `${Math.round(v * 100)}%`}
-              onDragStart={feedback.onDragStart}
-              onDragEnd={feedback.onDragEnd}
+              label="FEEDBACK"
+              unit="%"
               onChange={feedback.setValue}
+              onDragStart={feedback.dragStart}
+              onDragEnd={feedback.dragEnd}
             />
             <Knob
-              id="mix"
-              label="Mix"
               value={mix.value}
               min={0}
               max={1}
-              formatValue={(v) => `${Math.round(v * 100)}%`}
-              onDragStart={mix.onDragStart}
-              onDragEnd={mix.onDragEnd}
+              label="MIX"
+              unit="%"
               onChange={mix.setValue}
+              onDragStart={mix.dragStart}
+              onDragEnd={mix.dragEnd}
             />
           </div>
-        </section>
+        </div>
 
-        {/* Modulation Section */}
-        <section className="control-section mod-section">
-          <h2>Wave</h2>
-          <div className="knob-row">
+        {/* Secondary Controls */}
+        <div className="control-section">
+          <div className="section-title">MODULATION</div>
+          <div className="control-row">
             <Knob
-              id="modRate"
-              label="Rate"
               value={modRate.value}
               min={0.1}
               max={10}
-              step={0.01}
-              formatValue={(v) => `${v.toFixed(1)}Hz`}
-              onDragStart={modRate.onDragStart}
-              onDragEnd={modRate.onDragEnd}
+              label="RATE"
+              unit="Hz"
+              decimals={1}
               onChange={modRate.setValue}
+              onDragStart={modRate.dragStart}
+              onDragEnd={modRate.dragEnd}
             />
             <Knob
-              id="modDepth"
-              label="Depth"
               value={modDepth.value}
               min={0}
               max={1}
-              formatValue={(v) => `${Math.round(v * 100)}%`}
-              onDragStart={modDepth.onDragStart}
-              onDragEnd={modDepth.onDragEnd}
+              label="DEPTH"
+              unit="%"
               onChange={modDepth.setValue}
+              onDragStart={modDepth.dragStart}
+              onDragEnd={modDepth.dragEnd}
             />
             <Knob
-              id="tone"
-              label="Tone"
               value={tone.value}
               min={0}
               max={1}
-              formatValue={(v) => v < 0.3 ? 'Dark' : v > 0.7 ? 'Bright' : 'Warm'}
-              onDragStart={tone.onDragStart}
-              onDragEnd={tone.onDragEnd}
+              label="TONE"
+              unit="%"
               onChange={tone.setValue}
+              onDragStart={tone.dragStart}
+              onDragEnd={tone.dragEnd}
             />
           </div>
-        </section>
+        </div>
       </main>
 
       {/* Footer */}
-      <footer className="plugin-footer">
-        <span>BeatConnect</span>
+      <footer className="footer">
+        BeatConnect · DelayWave v1.0
       </footer>
     </div>
   );
+}
+
+// ============================================================================
+// App
+// ============================================================================
+
+function App() {
+  const [ready, setReady] = useState(false);
+
+  const handleActivated = useCallback(() => {
+    setReady(true);
+  }, []);
+
+  if (!ready) {
+    return <ActivationScreen onActivated={handleActivated} />;
+  }
+
+  return <PluginUI />;
 }
 
 export default App;

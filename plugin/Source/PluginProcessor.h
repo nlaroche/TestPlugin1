@@ -112,5 +112,18 @@ private:
     float filterStateR = 0.0f;
 
     //==============================================================================
+    // Level metering
+    std::atomic<float> inputLevelL { 0.0f };
+    std::atomic<float> inputLevelR { 0.0f };
+    std::atomic<float> outputLevelL { 0.0f };
+    std::atomic<float> outputLevelR { 0.0f };
+
+public:
+    // Get peak levels (0.0 - 1.0 range)
+    float getInputLevel() const { return std::max(inputLevelL.load(), inputLevelR.load()); }
+    float getOutputLevel() const { return std::max(outputLevelL.load(), outputLevelR.load()); }
+
+private:
+    //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DelayWaveProcessor)
 };
