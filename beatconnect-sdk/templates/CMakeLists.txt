@@ -24,7 +24,8 @@ option(BEATCONNECT_ENABLE_ACTIVATION "Enable BeatConnect activation" OFF)
 set(BEATCONNECT_DEV_MODE ${{{PLUGIN_NAME_UPPER}}_DEV_MODE})
 
 # Include BeatConnect CMake helpers
-include(${CMAKE_SOURCE_DIR}/../beatconnect-sdk/cmake/BeatConnectPlugin.cmake)
+# Use CMAKE_CURRENT_SOURCE_DIR to handle both direct and subdirectory builds
+include(${CMAKE_CURRENT_SOURCE_DIR}/../beatconnect-sdk/cmake/BeatConnectPlugin.cmake)
 
 # Fetch JUCE
 beatconnect_fetch_juce()

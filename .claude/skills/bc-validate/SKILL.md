@@ -13,119 +13,37 @@ Run from your plugin repository root.
 ## What It Checks
 
 ### 1. Project Structure
-- [ ] CMakeLists.txt exists (at root or in `plugin/`)
+- [ ] Root CMakeLists.txt exists (wrapper for subdirectory builds)
+- [ ] plugin/CMakeLists.txt exists (or CMakeLists.txt at root for flat structure)
 - [ ] Source/ directory exists
 - [ ] Required source files present (PluginProcessor.cpp/h, PluginEditor.cpp/h)
 - [ ] ParameterIDs.h exists
-- [ ] beatconnect-sdk submodule initialized (if using SDK structure)
+- [ ] beatconnect-sdk/ directory exists and is initialized
 
-### 2. CMake Configuration
-- [ ] CMakeLists.txt parses without errors
+### 2. CMake Configuration - Plugin Metadata
 - [ ] `cmake_minimum_required(VERSION 3.22)` or higher
-- [ ] `project()` defined with version
-- [ ] `juce_add_plugin()` target defined
-- [ ] Required JUCE modules linked
+- [ ] `project()` defined with name and VERSION
+- [ ] `juce_add_plugin()` target defined with all required fields:
+  - COMPANY_NAME (your company/brand)
+  - PLUGIN_MANUFACTURER_CODE (exactly 4 characters)
+  - PLUGIN_CODE (exactly 4 characters, unique per plugin)
+  - FORMATS (VST3, AU, Standalone, etc.)
+  - IS_SYNTH (TRUE for instruments, FALSE for effects)
+  - PRODUCT_NAME (display name)
+  - NEEDS_WEBVIEW2 (TRUE if using WebUI)
+- [ ] BeatConnectPlugin.cmake included correctly
+- [ ] `beatconnect_configure_plugin()` called
 
-### 3. Frontend Type Detection
-- [ ] Detect Web UI (`web-ui/` or `web/` directory)
-- [ ] Detect Native JUCE UI (no web directory, JUCE UI code in PluginEditor)
-- [ ] Validate frontend-specific requirements
-
-### 4. Web UI Validation (if applicable)
-- [ ] package.json exists
-- [ ] `npm install` succeeds
-- [ ] `npm run build` succeeds
-- [ ] dist/ folder generated with index.html
+### 3. Frontend Validation
+- [ ] Detect Web UI (`web-ui/` or `web/` directory) or Native JUCE UI
+- [ ] For Web UI: package.json, TypeScript compilation, Vite build
+- [ ] For Web UI: Resources/WebUI/ or dist/ with index.html
 - [ ] Parameter IDs match between C++ and TypeScript
 
-### 5. Native UI Validation (if applicable)
-- [ ] PluginEditor creates JUCE components (not WebBrowserComponent)
-- [ ] UI components properly initialized
-
-### 6. SDK Integration
-- [ ] BeatConnectPlugin.cmake included (or equivalent config)
-- [ ] BEATCONNECT_ENABLE_ACTIVATION option defined
-- [ ] Activation SDK path correct
-
-### 7. Build Readiness
-- [ ] .gitignore excludes build artifacts
-- [ ] No pre-compiled binaries in repo
-- [ ] Repository can be cloned cleanly
-
----
-
-## Validation Process
-
-### Phase 1: Structure Check (No Build Required)
-
-```bash
-# Run these checks first - they're fast
-```
-
-1. **Find project root**
-   ```
-   Check for CMakeLists.txt at:
-   - ./ (current directory)
-   - ./plugin/
-   ```
-
-2. **Check required files**
-   ```
-   Required:
-   - CMakeLists.txt
-   - Source/PluginProcessor.cpp
-   - Source/PluginProcessor.h
-   - Source/PluginEditor.cpp
-   - Source/PluginEditor.h
-   - Source/ParameterIDs.h
-   ```
-
-3. **Detect frontend type**
-   ```
-   Web UI: web-ui/package.json OR web/package.json exists
-   Native: No web directory found
-   ```
-
-4. **Check SDK**
-   ```
-   Look for beatconnect-sdk/ at:
-   - ../beatconnect-sdk (SDK at repo root)
-   - ./beatconnect-sdk (SDK in plugin dir)
-   ```
-
-### Phase 2: CMake Validation
-
-1. **Parse CMakeLists.txt**
-   - Check for required cmake commands
-   - Verify juce_add_plugin() call
-   - Check target_link_libraries
-
-2. **Dry-run configure** (optional, if cmake available)
-   ```bash
-   cmake -B build-validate -S . --dry-run 2>&1
-   ```
-
-### Phase 3: Frontend Validation
-
-**For Web UI:**
-```bash
-cd web-ui  # or web/
-npm install
-npm run build
-# Check dist/index.html exists
-```
-
-**For Native UI:**
-- Verify PluginEditor.cpp doesn't use WebBrowserComponent
-- Check for proper JUCE component setup
-
-### Phase 4: Parameter Sync Check (Web UI only)
-
-Compare parameter IDs between:
-- `Source/ParameterIDs.h` (C++ definitions)
-- `web-ui/src/**/*.ts` (TypeScript usage)
-
-Report any mismatches.
+### 4. Build System
+- [ ] Can configure from repo root (`cmake -B build -S .`)
+- [ ] .gitignore excludes build/, node_modules/, dist/
+- [ ] Uses CMAKE_CURRENT_SOURCE_DIR for paths (not CMAKE_SOURCE_DIR)
 
 ---
 
@@ -133,118 +51,163 @@ Report any mismatches.
 
 ### Success Output
 ```
-🔍 BeatConnect Plugin Validation
+============================================================
+ BEATCONNECT PLUGIN VALIDATION REPORT
+============================================================
 
-📁 Structure
-  ✓ CMakeLists.txt found at plugin/
-  ✓ Source/ directory exists
-  ✓ All required source files present
-  ✓ beatconnect-sdk found at ../beatconnect-sdk
+PLUGIN INFORMATION
+  Name:              DelayWave
+  Version:           1.0.0
+  Company:           BeatConnect
+  Manufacturer Code: Beat
+  Plugin Code:       Dwav
+  Category:          Effect (IS_SYNTH=FALSE)
+  Formats:           VST3, Standalone
+  Frontend:          Web UI
 
-🔧 CMake
-  ✓ CMake version 3.22+ required
-  ✓ Project: DelayWave v1.0.0
-  ✓ juce_add_plugin() target defined
-  ✓ BeatConnect SDK integration configured
+PROJECT STRUCTURE                                      [PASS]
+  ✓ Root CMakeLists.txt found (wrapper)
+  ✓ plugin/CMakeLists.txt found
+  ✓ plugin/Source/ directory exists
+  ✓ PluginProcessor.cpp/h present
+  ✓ PluginEditor.cpp/h present
+  ✓ ParameterIDs.h present
+  ✓ beatconnect-sdk/ found
 
-🎨 Frontend: Web UI
+CMAKE CONFIGURATION                                    [PASS]
+  ✓ CMake 3.22+ required
+  ✓ Project version: 1.0.0
+  ✓ COMPANY_NAME set
+  ✓ PLUGIN_MANUFACTURER_CODE: Beat (4 chars)
+  ✓ PLUGIN_CODE: Dwav (4 chars)
+  ✓ NEEDS_WEBVIEW2: TRUE
+  ✓ BeatConnectPlugin.cmake included
+  ✓ beatconnect_configure_plugin() called
+
+FRONTEND: Web UI                                       [PASS]
   ✓ web-ui/package.json found
-  ✓ npm install succeeded
-  ✓ npm run build succeeded
-  ✓ dist/index.html generated
+  ✓ TypeScript compiles
+  ✓ Vite build succeeded
+  ✓ Resources/WebUI/index.html exists
 
-🔗 Parameters
-  ✓ 3 parameters defined in C++
-  ✓ All parameters referenced in TypeScript
-  ✓ No mismatches found
+PARAMETER SYNC                                         [PASS]
+  C++ Parameters (7):
+    time, feedback, mix, modRate, modDepth, tone, bypass
+  TypeScript Parameters (7):
+    time, feedback, mix, modRate, modDepth, tone, bypass
+  ✓ All parameters match
 
-✅ All checks passed! Ready for BeatConnect build.
+BUILD SYSTEM                                           [PASS]
+  ✓ cmake -S . -B build configures successfully
+  ✓ .gitignore properly configured
 
-🎋 Haiku Summary:
-  Code structure clean
-  Web and native paths aligned
-  Build will succeed now
+============================================================
+ RESULT: ALL CHECKS PASSED
+ Your plugin is ready for BeatConnect build!
+============================================================
 ```
 
 ### Failure Output
 ```
-🔍 BeatConnect Plugin Validation
+============================================================
+ BEATCONNECT PLUGIN VALIDATION REPORT
+============================================================
 
-📁 Structure
-  ✓ CMakeLists.txt found at plugin/
-  ✓ Source/ directory exists
-  ✗ Missing: Source/ParameterIDs.h
-  ✓ beatconnect-sdk found
+PLUGIN INFORMATION
+  Name:              MyPlugin
+  Version:           1.0.0
+  Company:           [NOT SET]
+  Manufacturer Code: [NOT SET]
+  Plugin Code:       [NOT SET]
+  Category:          Unknown
+  Formats:           VST3
+  Frontend:          Web UI
 
-🔧 CMake
-  ✓ CMake version 3.22+ required
-  ✗ juce_add_plugin() not found - check CMakeLists.txt
+PROJECT STRUCTURE                                      [FAIL]
+  ✓ Root CMakeLists.txt found
+  ✓ plugin/CMakeLists.txt found
+  ✓ plugin/Source/ directory exists
+  ✓ PluginProcessor.cpp/h present
+  ✓ PluginEditor.cpp/h present
+  ✗ ParameterIDs.h MISSING
+  ✓ beatconnect-sdk/ found
 
-🎨 Frontend: Web UI
+CMAKE CONFIGURATION                                    [FAIL]
+  ✓ CMake 3.22+ required
+  ✓ Project version: 1.0.0
+  ✗ COMPANY_NAME not set
+  ✗ PLUGIN_MANUFACTURER_CODE not set (required, 4 chars)
+  ✗ PLUGIN_CODE not set (required, 4 chars)
+  ✓ NEEDS_WEBVIEW2: TRUE
+  ✓ BeatConnectPlugin.cmake included
+
+FRONTEND: Web UI                                       [FAIL]
   ✓ web-ui/package.json found
-  ✗ npm install failed: ERESOLVE unable to resolve dependency tree
-  ○ npm run build skipped (install failed)
+  ✗ npm install failed
+  ○ Build skipped (dependencies failed)
 
-❌ 3 issues found
+============================================================
+ RESULT: 5 ISSUES FOUND
+============================================================
 
-🔧 Fixes:
-1. Create Source/ParameterIDs.h with your parameter ID constants
-2. Add juce_add_plugin() call to CMakeLists.txt (see example-plugin)
-3. Run: cd web-ui && rm -rf node_modules package-lock.json && npm install
-
-🎋 Haiku Summary:
-  Parameters missing
-  CMake config incomplete
-  Fix before you build
+REQUIRED FIXES:
+1. Create plugin/Source/ParameterIDs.h with parameter ID constants
+2. Set COMPANY_NAME in juce_add_plugin() - e.g., "MyCompany"
+3. Set PLUGIN_MANUFACTURER_CODE in juce_add_plugin() - exactly 4 characters, e.g., Myco
+4. Set PLUGIN_CODE in juce_add_plugin() - exactly 4 characters, unique, e.g., Mypl
+5. Fix npm: cd plugin/web-ui && rm -rf node_modules package-lock.json && npm install
 ```
 
 ---
 
 ## Implementation Notes
 
-### File Reading Strategy
+### Extracting Plugin Info from CMakeLists.txt
 
-1. Read CMakeLists.txt and parse for:
-   - `cmake_minimum_required`
-   - `project(NAME VERSION X.Y.Z)`
-   - `juce_add_plugin(TARGET_NAME ...)`
-   - `target_link_libraries`
-   - `include(...BeatConnectPlugin.cmake)`
+Parse juce_add_plugin() call:
+```cmake
+juce_add_plugin(PluginName
+    COMPANY_NAME "CompanyName"
+    PLUGIN_MANUFACTURER_CODE Abcd
+    PLUGIN_CODE Efgh
+    FORMATS VST3 AU Standalone
+    IS_SYNTH FALSE
+    PRODUCT_NAME "Product Name"
+    NEEDS_WEBVIEW2 TRUE
+)
+```
 
-2. Read ParameterIDs.h and extract:
-   - `constexpr` or `const` string definitions
-   - `inline constexpr auto` patterns
-   - `#define` macros for IDs
+Extract from project():
+```cmake
+project(PluginName VERSION 1.0.0 LANGUAGES CXX)
+```
 
-3. For Web UI, grep TypeScript files for:
-   - `useSliderParam("id")`
-   - `useToggleParam("id")`
-   - Parameter ID string literals
+### Key Validations
 
-### Running Commands
+1. **PLUGIN_MANUFACTURER_CODE** - Must be exactly 4 alphanumeric characters
+2. **PLUGIN_CODE** - Must be exactly 4 alphanumeric characters, unique per plugin
+3. **NEEDS_WEBVIEW2** - Must be TRUE if web-ui/ directory exists
+4. **Root CMakeLists.txt** - Required for CI builds that run `cmake -S . -B build` from repo root
 
-Only run npm commands if:
-- package.json exists
-- Node.js is available (`which node`)
+### Testing Build Configuration
 
-Use `--prefer-offline` for faster npm install.
+Run cmake configure test:
+```bash
+cmake -B build-test -S . 2>&1
+```
 
-### Haiku Generation
-
-Generate a haiku (5-7-5 syllables) summarizing:
-- Overall status (pass/fail)
-- Main issues if any
-- Encouraging if passing
+Check for:
+- Configuration succeeds without errors
+- "[BeatConnect]" status messages appear
+- No "file not found" errors
 
 ---
 
-## Integration with /bc-create-plugin
+## Integration
 
-After scaffolding a new plugin, `/bc-create-plugin` should automatically run `/bc-validate` to ensure the generated project is valid.
-
-```
-# At end of /bc-create-plugin:
-"Let me validate the generated project..."
-[Run /bc-validate checks]
-"All checks passed! Your plugin is ready."
-```
+This validation catches issues that would fail BeatConnect CI builds:
+- Missing root CMakeLists.txt wrapper
+- Incorrect SDK paths (CMAKE_SOURCE_DIR vs CMAKE_CURRENT_SOURCE_DIR)
+- Missing or invalid plugin metadata
+- Web UI build failures
+- Parameter ID mismatches between C++ and TypeScript

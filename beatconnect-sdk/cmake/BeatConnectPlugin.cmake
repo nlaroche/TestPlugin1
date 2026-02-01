@@ -22,12 +22,20 @@
 cmake_minimum_required(VERSION 3.22)
 
 # ==============================================================================
+# Capture Plugin Source Directory
+# ==============================================================================
+# CMAKE_CURRENT_SOURCE_DIR at include() time is the plugin's directory.
+# We store this so functions can reference it correctly even when the plugin
+# is built as a subdirectory from a root CMakeLists.txt.
+set(BEATCONNECT_PLUGIN_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE INTERNAL "Plugin source directory")
+
+# ==============================================================================
 # Options
 # ==============================================================================
 
 # Auto-detect WebUI based on directory existence (can be overridden)
 if(NOT DEFINED BEATCONNECT_USE_WEBUI)
-    if(EXISTS "${CMAKE_SOURCE_DIR}/web-ui" OR EXISTS "${CMAKE_SOURCE_DIR}/web")
+    if(EXISTS "${BEATCONNECT_PLUGIN_SOURCE_DIR}/web-ui" OR EXISTS "${BEATCONNECT_PLUGIN_SOURCE_DIR}/web")
         set(BEATCONNECT_USE_WEBUI ON)
         message(STATUS "[BeatConnect] WebUI directory found - enabling WebView support")
     else()
@@ -149,13 +157,13 @@ endfunction()
 # Internal: Setup WebUI resource copying
 # ==============================================================================
 function(_beatconnect_setup_webui_copy TARGET_NAME)
-    # Determine WebUI source directory
-    if(EXISTS "${CMAKE_SOURCE_DIR}/web-ui/dist")
-        set(WEBUI_DIST "${CMAKE_SOURCE_DIR}/web-ui/dist")
-    elseif(EXISTS "${CMAKE_SOURCE_DIR}/web/dist")
-        set(WEBUI_DIST "${CMAKE_SOURCE_DIR}/web/dist")
-    elseif(EXISTS "${CMAKE_SOURCE_DIR}/Resources/WebUI")
-        set(WEBUI_DIST "${CMAKE_SOURCE_DIR}/Resources/WebUI")
+    # Determine WebUI source directory using the captured plugin source dir
+    if(EXISTS "${BEATCONNECT_PLUGIN_SOURCE_DIR}/web-ui/dist")
+        set(WEBUI_DIST "${BEATCONNECT_PLUGIN_SOURCE_DIR}/web-ui/dist")
+    elseif(EXISTS "${BEATCONNECT_PLUGIN_SOURCE_DIR}/web/dist")
+        set(WEBUI_DIST "${BEATCONNECT_PLUGIN_SOURCE_DIR}/web/dist")
+    elseif(EXISTS "${BEATCONNECT_PLUGIN_SOURCE_DIR}/Resources/WebUI")
+        set(WEBUI_DIST "${BEATCONNECT_PLUGIN_SOURCE_DIR}/Resources/WebUI")
     else()
         message(WARNING "[BeatConnect] WebUI enabled but no dist directory found. Run 'npm run build' in web-ui/")
         return()
@@ -199,14 +207,11 @@ function(_beatconnect_setup_activation TARGET_NAME)
     if(BEATCONNECT_ENABLE_ACTIVATION)
         # Find the SDK activation directory
         # Supports multiple layouts:
-        # - SDK at repo root with plugin in subdirectory: ../beatconnect-sdk/sdk/activation
-        # - SDK as submodule inside plugin: beatconnect-sdk/sdk/activation
-        # - Direct SDK reference: ../sdk/activation or sdk/activation
+        # - SDK at repo root with plugin in subdirectory: ../beatconnect-sdk/activation
+        # - SDK as submodule inside plugin: beatconnect-sdk/activation
         set(ACTIVATION_PATHS
-            "${CMAKE_SOURCE_DIR}/../beatconnect-sdk/sdk/activation"
-            "${CMAKE_SOURCE_DIR}/beatconnect-sdk/sdk/activation"
-            "${CMAKE_SOURCE_DIR}/../sdk/activation"
-            "${CMAKE_SOURCE_DIR}/sdk/activation"
+            "${BEATCONNECT_PLUGIN_SOURCE_DIR}/../beatconnect-sdk/activation"
+            "${BEATCONNECT_PLUGIN_SOURCE_DIR}/beatconnect-sdk/activation"
         )
 
         set(ACTIVATION_FOUND OFF)
@@ -234,11 +239,11 @@ endfunction()
 # Internal: Setup project_data.json (injected by BeatConnect CI)
 # ==============================================================================
 function(_beatconnect_setup_project_data TARGET_NAME)
-    if(EXISTS "${CMAKE_SOURCE_DIR}/resources/project_data.json")
+    if(EXISTS "${BEATCONNECT_PLUGIN_SOURCE_DIR}/resources/project_data.json")
         juce_add_binary_data(${TARGET_NAME}_ProjectData
             HEADER_NAME "ProjectData.h"
             NAMESPACE ProjectData
-            SOURCES resources/project_data.json
+            SOURCES "${BEATCONNECT_PLUGIN_SOURCE_DIR}/resources/project_data.json"
         )
         target_link_libraries(${TARGET_NAME} PRIVATE ${TARGET_NAME}_ProjectData)
         target_compile_definitions(${TARGET_NAME} PUBLIC HAS_PROJECT_DATA=1)
