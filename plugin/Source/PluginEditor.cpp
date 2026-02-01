@@ -51,11 +51,18 @@ void DelayWaveEditor::setupWebView()
     toneRelay = std::make_unique<juce::WebSliderRelay>("tone");
     bypassRelay = std::make_unique<juce::WebToggleButtonRelay>("bypass");
 
-    // STEP 2: Get resources directory
-    resourcesDir = juce::File::getSpecialLocation(juce::File::currentExecutableFile)
-                       .getParentDirectory()
-                       .getChildFile("Resources")
-                       .getChildFile("WebUI");
+    // STEP 2: Find resources directory (handle multiple bundle layouts)
+    auto executableFile = juce::File::getSpecialLocation(juce::File::currentExecutableFile);
+    auto executableDir = executableFile.getParentDirectory();
+
+    // Try multiple locations:
+    // 1. Standalone: exe/Resources/WebUI
+    // 2. VST3/AU bundle: exe/../Resources/WebUI (Resources is sibling of x86_64-win)
+    resourcesDir = executableDir.getChildFile("Resources").getChildFile("WebUI");
+    if (!resourcesDir.isDirectory())
+        resourcesDir = executableDir.getParentDirectory().getChildFile("Resources").getChildFile("WebUI");
+
+    DBG("WebUI resources dir: " + resourcesDir.getFullPathName());
 
     // STEP 3: Build WebBrowserComponent options
     auto options = juce::WebBrowserComponent::Options()
