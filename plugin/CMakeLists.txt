@@ -62,6 +62,7 @@ target_link_libraries(${PROJECT_NAME}
         juce::juce_audio_utils
         juce::juce_dsp
         juce::juce_gui_extra
+        juce::juce_cryptography  # Required for activation SDK (SHA256)
 )
 
 # ==============================================================================

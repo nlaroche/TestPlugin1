@@ -62,6 +62,15 @@ if(TARGET juce::juce_core)
             BEATCONNECT_USE_JUCE=1
     )
     message(STATUS "BeatConnect SDK: Using JUCE for HTTP/JSON")
+
+    # Link juce_cryptography for SHA256 (used by MachineId)
+    if(TARGET juce::juce_cryptography)
+        target_link_libraries(beatconnect_activation
+            PRIVATE
+                juce::juce_cryptography
+        )
+        message(STATUS "BeatConnect SDK: Using JUCE cryptography for SHA256")
+    endif()
 else()
     message(WARNING "BeatConnect SDK: JUCE not found. SDK requires JUCE for HTTP client.")
 endif()

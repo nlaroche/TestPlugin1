@@ -91,23 +91,40 @@ Check that `plugin/Resources/WebUI/index.html` exists after build.
 
 **If build fails, capture and display the error.**
 
-### Step 7: Run CMake Configure FROM REPO ROOT
+### Step 7: Run CMake Configure WITH ACTIVATION ENABLED
 
-**This is the most critical test.** Run:
+**This is the most critical test.** CI builds with activation enabled, so we MUST test that way:
 
 ```bash
 cd <repo-root>
 rm -rf build-validate
-cmake -B build-validate -S . 2>&1
+cmake -B build-validate -S . -DBEATCONNECT_ENABLE_ACTIVATION=ON 2>&1
 ```
 
 Check output for:
 - ✓ Configuration completes without error
 - ✓ "[BeatConnect] Detected SDK-at-root structure" message appears
 - ✓ "[BeatConnect] WebUI directory found" (if web UI)
+- ✓ "[BeatConnect] Activation SDK enabled" message appears
+- ✓ "BeatConnect SDK: Using JUCE cryptography for SHA256" message appears
 - ✗ Any CMake errors or warnings
 
 **If cmake fails, this is a CRITICAL FAILURE.**
+
+### Step 7b: Run CMake BUILD (Full Compile + Link Test)
+
+**Don't just configure - actually build to catch linker errors:**
+
+```bash
+cmake --build build-validate --config Release 2>&1
+```
+
+Check for:
+- ✓ Build completes without error
+- ✓ VST3 and/or Standalone artefacts created
+- ✗ Any linker errors (LNK2001, undefined symbols, etc.)
+
+**If build fails, this is a CRITICAL FAILURE.**
 
 ### Step 8: Parameter Sync Check (Web UI only)
 
