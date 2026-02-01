@@ -198,7 +198,12 @@ endfunction()
 function(_beatconnect_setup_activation TARGET_NAME)
     if(BEATCONNECT_ENABLE_ACTIVATION)
         # Find the SDK activation directory
+        # Supports multiple layouts:
+        # - SDK at repo root with plugin in subdirectory: ../beatconnect-sdk/sdk/activation
+        # - SDK as submodule inside plugin: beatconnect-sdk/sdk/activation
+        # - Direct SDK reference: ../sdk/activation or sdk/activation
         set(ACTIVATION_PATHS
+            "${CMAKE_SOURCE_DIR}/../beatconnect-sdk/sdk/activation"
             "${CMAKE_SOURCE_DIR}/beatconnect-sdk/sdk/activation"
             "${CMAKE_SOURCE_DIR}/../sdk/activation"
             "${CMAKE_SOURCE_DIR}/sdk/activation"

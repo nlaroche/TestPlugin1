@@ -267,31 +267,43 @@ Before creating files, ask the user:
 
 ### Phase 2: Create Project Structure
 
+**Repository layout** (SDK at root, plugin in subdirectory):
+
 ```
-<plugin-name>/
-├── CMakeLists.txt
-├── Source/
-│   ├── PluginProcessor.cpp
-│   ├── PluginProcessor.h
-│   ├── PluginEditor.cpp
-│   ├── PluginEditor.h
-│   └── ParameterIDs.h
-├── web-ui/
-│   ├── package.json
-│   ├── vite.config.ts
-│   ├── index.html
-│   └── src/
-│       ├── main.tsx
-│       ├── App.tsx
-│       ├── index.css
-│       ├── lib/
-│       │   └── juce-bridge.ts
-│       └── hooks/
-│           ├── useJuceParam.ts
-│           └── useActivation.ts
-├── beatconnect-sdk/              # Git submodule
-└── .github/workflows/build.yml
+<repo>/
+├── beatconnect-sdk/              # Git submodule at REPO ROOT
+├── plugin/                       # Plugin code in subdirectory
+│   ├── CMakeLists.txt
+│   ├── Source/
+│   │   ├── PluginProcessor.cpp
+│   │   ├── PluginProcessor.h
+│   │   ├── PluginEditor.cpp
+│   │   ├── PluginEditor.h
+│   │   └── ParameterIDs.h
+│   ├── web-ui/
+│   │   ├── package.json
+│   │   ├── vite.config.ts
+│   │   ├── index.html
+│   │   └── src/
+│   │       ├── main.tsx
+│   │       ├── App.tsx
+│   │       ├── index.css
+│   │       ├── lib/
+│   │       │   └── juce-bridge.ts
+│   │       └── hooks/
+│   │           ├── useJuceParam.ts
+│   │           └── useActivation.ts
+│   └── Resources/
+│       └── WebUI/                # Built web assets (from npm run build)
+└── .gitignore
 ```
+
+**Why this structure?**
+- SDK at root keeps it separate from your plugin code
+- BeatConnect build system auto-detects `plugin/CMakeLists.txt`
+- CMake references SDK via `${CMAKE_SOURCE_DIR}/../beatconnect-sdk`
+
+**Alternative: Legacy structure** (CMakeLists.txt at root) is also supported for existing plugins.
 
 ### Phase 3: Replace Placeholders
 
@@ -330,6 +342,8 @@ if(WIN32)
 endif()
 
 # BeatConnect SDK Integration
+# SDK is at repo root, one level up from plugin/
+set(BEATCONNECT_SDK_DIR "${CMAKE_SOURCE_DIR}/../beatconnect-sdk")
 option(BEATCONNECT_ENABLE_ACTIVATION "Enable activation" OFF)
 
 if(EXISTS "${CMAKE_SOURCE_DIR}/resources/project_data.json")
@@ -344,8 +358,8 @@ else()
     target_compile_definitions(${PROJECT_NAME} PUBLIC HAS_PROJECT_DATA=0)
 endif()
 
-if(BEATCONNECT_ENABLE_ACTIVATION AND EXISTS "${CMAKE_SOURCE_DIR}/beatconnect-sdk/sdk/activation/CMakeLists.txt")
-    add_subdirectory(beatconnect-sdk/sdk/activation)
+if(BEATCONNECT_ENABLE_ACTIVATION AND EXISTS "${BEATCONNECT_SDK_DIR}/sdk/activation/CMakeLists.txt")
+    add_subdirectory(${BEATCONNECT_SDK_DIR}/sdk/activation ${CMAKE_BINARY_DIR}/beatconnect_activation)
     target_link_libraries(${PROJECT_NAME} PRIVATE beatconnect_activation)
     target_compile_definitions(${PROJECT_NAME} PUBLIC BEATCONNECT_ACTIVATION_ENABLED=1)
 else()
