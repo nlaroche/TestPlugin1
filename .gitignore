@@ -52,7 +52,7 @@ JuceLibraryCode/
 
 # Dependencies
 node_modules/
-package-lock.json
+# Note: package-lock.json should be committed for reproducible CI builds
 
 # Web build output (should be built fresh)
 web/dist/
